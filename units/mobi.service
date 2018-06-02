@@ -1,0 +1,6 @@
+[Unit]
+Description = Service to convert articles to Kindle ebook files
+
+[Service]
+Type = oneshot
+ExecStart = mobi -path /srv/cache/

@@ -1,0 +1,9 @@
+[Unit]
+Description=Run service every couple of hours
+
+[Timer]
+RandomizedDelaySec=1873
+OnCalendar=*-*-* 00,06,12,18:00:00
+
+[Install]
+WantedBy=timers.target

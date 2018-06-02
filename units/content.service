@@ -1,0 +1,6 @@
+[Unit]
+Description = Service to download and make rss items readable
+
+[Service]
+Type = oneshot
+ExecStart = content -path /srv/cache/

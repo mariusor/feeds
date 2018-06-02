@@ -1,0 +1,6 @@
+[Unit]
+Description = Service to check new items in rss feeds
+
+[Service]
+Type = oneshot
+ExecStart = feeds -path /srv/cache/
