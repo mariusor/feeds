@@ -1,14 +1,14 @@
 package main
 
 import (
+	"encoding/json"
+	"flag"
 	"github.com/jordan-wright/email"
+	"github.com/mxk/go-sqlite/sqlite3"
 	"log"
 	"net/smtp"
-	"github.com/mxk/go-sqlite/sqlite3"
-	"flag"
-	"path"
 	"os"
-	"encoding/json"
+	"path"
 )
 
 const htmlDir = "articles"
@@ -16,14 +16,14 @@ const mobiDir = "output/mobi"
 const dbFilePath = "feeds.db"
 
 type smtpCreds struct {
-	server string
-	port string
-	from string
-	user string
-	password string
+	Server   string `json:"server"`
+	Port     string `json:"port"`
+	From     string `json:"from"`
+	User     string `json:"user"`
+	Password string `json:"password"`
 }
-type target struct {
-	to string
+type destination struct {
+	To string `json:"to"`
 }
 
 func dispatchToKindle(subject string, attachment string, c *sqlite3.Conn) error {
@@ -38,26 +38,24 @@ func dispatchToKindle(subject string, attachment string, c *sqlite3.Conn) error 
 		s.Scan(&data, &credentials)
 
 		var settings smtpCreds
-		var to target
+		var target destination
 		err = json.Unmarshal(credentials, &settings)
 		if err != nil {
 			return err
 		}
-		err = json.Unmarshal(data, &to)
+		err = json.Unmarshal(data, &target)
 		if err != nil {
 			return err
 		}
-
 		e := email.NewEmail()
-		log.Printf("Emailing %s to %s", attachment, to.to)
-		return nil
+		log.Printf("Emailing %s to %s", attachment, target.To)
 
-		e.From = settings.from
-		e.To = []string{to.to}
+		e.From = settings.From
+		e.To = []string{target.To}
 		e.Cc = []string{"marius.orcsik@gmail.com"}
 		e.Subject = subject
 		e.AttachFile(attachment)
-		err = e.Send(settings.server+":"+settings.port, smtp.PlainAuth("", settings.user, settings.password, settings.server))
+		err = e.Send(settings.Server+":"+settings.Port, smtp.PlainAuth("", settings.User, settings.Password, settings.Server))
 		if err != nil {
 			return err
 		}
@@ -117,9 +115,5 @@ func main() {
 		args := sqlite3.NamedArgs{"$dispatched": true, "$id": itemId}
 		updateFeed := "UPDATE items_contents SET dispatched = $dispatched WHERE id = $id"
 		c.Exec(updateFeed, args)
-	}
-
-	if err != nil {
-		log.Fatal(err)
 	}
 }
