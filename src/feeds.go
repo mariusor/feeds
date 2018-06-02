@@ -17,7 +17,6 @@ const mobiDir = "output/mobi"
 const dbFilePath = "feeds.db"
 
 func createTables(c *sqlite3.Conn) (bool, error) {
-	//users := "CREATE TABLE destinations (id INTEGER PRIMARY KEY ASC, )"
 	feeds := "CREATE TABLE feeds (" +
 		"id INTEGER PRIMARY KEY ASC, " +
 		"url TEXT, " +
@@ -41,7 +40,6 @@ func createTables(c *sqlite3.Conn) (bool, error) {
 	")"
 	c.Exec(items)
 
-	//contents := "CREATE TABLE items_contents (id INTEGER PRIMARY KEY ASC, url TEXT, item_id INTEGER, feed_id INTEGER, htmlDir TEXT, mobiDir TEXT, content_html TEXT, mobi_content blob, FOREIGN KEY(item_id) REFERENCES items(id), FOREIGN KEY(feed_id) REFERENCES feeds(id))"
 	contents := "CREATE TABLE items_contents (" +
 		"id INTEGER PRIMARY KEY ASC, " +
 		"url TEXT, " +
@@ -62,7 +60,7 @@ func createTables(c *sqlite3.Conn) (bool, error) {
 
 	outputs := "CREATE TABLE outputs (" +
 		"id INTEGER PRIMARY KEY ASC, "+
-		"user_id INTEGER" +
+		"user_id INTEGER," +
 		"type TEXT, " +
 		"credentials TEXT" +
 	");"
