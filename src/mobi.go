@@ -1,13 +1,13 @@
 package main
 
 import (
-	"github.com/mxk/go-sqlite/sqlite3"
-	"github.com/766b/mobi"
-	"flag"
-	"path"
-	"os"
-	"log"
 	"bytes"
+	"flag"
+	"github.com/766b/mobi"
+	"github.com/mxk/go-sqlite/sqlite3"
+	"log"
+	"os"
+	"path"
 	"path/filepath"
 )
 
@@ -63,9 +63,9 @@ func main() {
 	defer c.Close()
 
 	sql := "SELECT items_contents.id, feeds.title, items.title, items.author, html_path " +
-	"FROM items_contents " +
-	"INNER JOIN items ON items.id = items_contents.item_id " +
-	"INNER JOIN feeds ON feeds.id = items.feed_id WHERE mobi_path IS NULL"
+		"FROM items_contents " +
+		"INNER JOIN items ON items.id = items_contents.item_id " +
+		"INNER JOIN feeds ON feeds.id = items.feed_id WHERE mobi_path IS NULL"
 	var s *sqlite3.Stmt
 
 	for s, err = c.Query(sql); err == nil; err = s.Next() {
@@ -79,7 +79,7 @@ func main() {
 		log.Printf("File %s\n", path.Base(htmlPath))
 
 		f, err := os.Open(htmlPath)
-		if err != nil{
+		if err != nil {
 			log.Fatal(err)
 			os.Exit(1)
 		}
@@ -91,7 +91,7 @@ func main() {
 		if _, err = os.Stat(mobiPath); os.IsNotExist(err) {
 			err = os.Mkdir(mobiPath, 0755)
 		}
-		mobiPath = path.Join(mobiPath, itemTitle + ".mobi")
+		mobiPath = path.Join(mobiPath, itemTitle+".mobi")
 		if !path.IsAbs(mobiPath) {
 			mobiPath, _ = filepath.Abs(mobiPath)
 		}
@@ -103,9 +103,5 @@ func main() {
 		args := sqlite3.NamedArgs{"$mobi_path": mobiPath, "$id": itemId}
 		updateFeed := "UPDATE items_contents SET mobi_path = $mobi_path WHERE id = $id"
 		c.Exec(updateFeed, args)
-	}
-
-	if err != nil {
-		log.Fatal(err)
 	}
 }

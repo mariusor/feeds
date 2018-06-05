@@ -2,14 +2,14 @@ package main
 
 import (
 	"flag"
-	"os"
 	"log"
+	"os"
 
 	"github.com/mariusor/go-readability"
 	"github.com/mxk/go-sqlite/sqlite3"
 
-	"net/http"
 	"io/ioutil"
+	"net/http"
 	"path"
 	"path/filepath"
 )
@@ -49,7 +49,7 @@ func loadItem(id int64, url string, c *sqlite3.Conn, htmlPath string) error {
 		return err
 	}
 	// write html to path
-	outPath :=  path.Join(htmlPath, title + ".html")
+	outPath := path.Join(htmlPath, title+".html")
 	err = ioutil.WriteFile(outPath, content, 0644)
 	if err != nil {
 		return err
@@ -58,9 +58,9 @@ func loadItem(id int64, url string, c *sqlite3.Conn, htmlPath string) error {
 		outPath, _ = filepath.Abs(outPath)
 	}
 	itemArgs := sqlite3.NamedArgs{
-		"$url":          url,
-		"$item_id": 	 id,
-		"$html_path":	 outPath,
+		"$url":       url,
+		"$item_id":   id,
+		"$html_path": outPath,
 	}
 
 	err = c.Exec(contentIns, itemArgs)
@@ -96,7 +96,6 @@ func main() {
 	c, _ = sqlite3.Open(dbPath)
 	defer c.Close()
 
-
 	sql := "SELECT items.id, feeds.title, items.url FROM items INNER JOIN feeds LEFT JOIN items_contents ON items_contents.item_id = items.id WHERE items_contents.id IS NULL"
 	var s *sqlite3.Stmt
 	for s, err = c.Query(sql); err == nil; err = s.Next() {
@@ -115,8 +114,5 @@ func main() {
 			log.Fatal(err)
 			continue
 		}
-	}
-	if err != nil {
-		log.Fatal(err)
 	}
 }

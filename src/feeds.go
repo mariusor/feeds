@@ -2,9 +2,9 @@ package main
 
 import (
 	"flag"
+	"log"
 	"os"
 	"time"
-	"log"
 
 	"github.com/SlyMarbo/rss"
 	"github.com/mxk/go-sqlite/sqlite3"
@@ -23,7 +23,7 @@ func createTables(c *sqlite3.Conn) (bool, error) {
 		"title TEXT, " +
 		"frequency REAL, " +
 		"last_loaded DATETIME" +
-	")"
+		")"
 	c.Exec(feeds)
 
 	items := "CREATE TABLE items (" +
@@ -37,7 +37,7 @@ func createTables(c *sqlite3.Conn) (bool, error) {
 		"last_loaded DATETIME, " +
 		"last_status INTEGER, " +
 		"FOREIGN KEY(feed_id) REFERENCES feeds(id)" +
-	")"
+		")"
 	c.Exec(items)
 
 	contents := "CREATE TABLE items_contents (" +
@@ -48,7 +48,7 @@ func createTables(c *sqlite3.Conn) (bool, error) {
 		"mobi_path TEXT, " +
 		"dispatched INTEGER DEFAULT 0, " +
 		"FOREIGN KEY(item_id) REFERENCES items(id) " +
-	")"
+		")"
 	c.Exec(contents)
 
 	parahumans := sqlite3.NamedArgs{"$feed": "https://www.parahumans.net/feed/", "$frequency": 120000000000, "$date": nil}
@@ -59,11 +59,11 @@ func createTables(c *sqlite3.Conn) (bool, error) {
 	c.Exec(users)
 
 	outputs := "CREATE TABLE outputs (" +
-		"id INTEGER PRIMARY KEY ASC, "+
+		"id INTEGER PRIMARY KEY ASC, " +
 		"user_id INTEGER," +
 		"type TEXT, " +
 		"credentials TEXT" +
-	");"
+		");"
 	c.Exec(outputs)
 
 	targets := "create table targets (" +
@@ -71,8 +71,8 @@ func createTables(c *sqlite3.Conn) (bool, error) {
 		"output_id INTEGER, " +
 		"data TEXT, " +
 		"FOREIGN KEY(user_id) REFERENCES users(id), " +
-		"FOREIGN KEY(output_id) REFERENCES outputs(id)"  +
-	");"
+		"FOREIGN KEY(output_id) REFERENCES outputs(id)" +
+		");"
 	c.Exec(targets)
 
 	return true, nil
@@ -87,7 +87,7 @@ func checkFeed(url string, feedId int64, c *sqlite3.Conn) (bool, error) {
 	count := 0
 
 	updateTitle := "UPDATE feeds SET title = $title, last_loaded = $now WHERE id = $id"
-	c.Exec(updateTitle,  sqlite3.NamedArgs{"$title": doc.Title, "$now": time.Now(), "$id": feedId})
+	c.Exec(updateTitle, sqlite3.NamedArgs{"$title": doc.Title, "$now": time.Now(), "$id": feedId})
 
 	itemSel := "SELECT id FROM items WHERE url = $url"
 	itemIns := "INSERT INTO items (url, feed_id, guid, title, author, published_date) VALUES($url, $feed_id, $guid, $title, $author, $published_at)"
@@ -109,8 +109,8 @@ func checkFeed(url string, feedId int64, c *sqlite3.Conn) (bool, error) {
 			"$feed_id":      feedId,
 			"$guid":         item.ID,
 			"$published_at": item.Date,
-			"$title": 		 item.Title,
-			"$author": 		 "unknown",
+			"$title":        item.Title,
+			"$author":       "unknown",
 		}
 
 		err = c.Exec(itemIns, itemArgs)
@@ -188,8 +188,5 @@ func main() {
 		args := sqlite3.NamedArgs{"$now": time.Now()}
 		updateFeed := "UPDATE feeds SET lastLoaded = $now"
 		c.Exec(updateFeed, args)
-	}
-	if err != nil {
-		log.Fatal(err)
 	}
 }
