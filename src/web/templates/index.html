@@ -1,10 +1,13 @@
-<html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Login</title>
+</head>
 <body>
-  <h2>Log in with...</h2>
-  <ul>
-    <li> <a href="auth/github/login">GitHub</a> </li>
-    <li> <a href="auth/google/login">Google</a> </li>
-    <li> <a href="auth/facebook/login">Facebook</a> </li>
-  </ul>
+<h1>Login</h1>
+{{range $key,$value:=.Providers}}
+<p><a href="/auth/{{$value}}">Log in with {{index $.ProvidersMap $value}}</a></p>
+{{end}}
 </body>
 </html>
