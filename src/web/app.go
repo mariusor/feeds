@@ -9,10 +9,10 @@ import (
 
 	"log"
 
+	"github.com/gorilla/mux"
 	"github.com/markbates/goth"
 	"github.com/markbates/goth/gothic"
 	"github.com/markbates/goth/providers/github"
-	"github.com/gorilla/mux"
 	"github.com/michaeljs1990/sqlitestore"
 )
 
@@ -55,15 +55,19 @@ func main() {
 	}
 
 	key := []byte("test!2#")
-	maxAge := 86400 * 30  // 30 days
-	isProd := false       // Set to true when serving over https
+	maxAge := 86400 * 30 // 30 days
+	isProd := false      // Set to true when serving over https
 
-	store, err := sqlitestore.NewSqliteStore("../../.cache/feeds.db", "sessions", "/", maxAge, key)
+	dbPath := os.Getenv("SESSION_DB_PATH")
+	if dbPath == "" {
+		dbPath = "./.cache/sessions.db"
+	}
+	store, err := sqlitestore.NewSqliteStore(dbPath, "sessions", "/", maxAge, key)
 	if err != nil {
 		panic(err)
 	}
 	store.Options.Path = "/"
-	store.Options.HttpOnly = true   // HttpOnly should always be enabled
+	store.Options.HttpOnly = true // HttpOnly should always be enabled
 	store.Options.Secure = isProd
 
 	gothic.Store = store
