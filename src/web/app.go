@@ -13,7 +13,7 @@ import (
 	"github.com/markbates/goth"
 	"github.com/markbates/goth/gothic"
 	"github.com/markbates/goth/providers/github"
-	"github.com/michaeljs1990/sqlitestore"
+	"github.com/boj/redistore"
 )
 
 func logMw(next http.Handler) http.Handler {
@@ -55,20 +55,19 @@ func main() {
 	}
 
 	key := []byte("test!2#")
-	maxAge := 86400 * 30 // 30 days
-	isProd := false      // Set to true when serving over https
+	//maxAge := 86400 * 30 // 30 days
+	//isProd := false      // Set to true when serving over https
 
-	dbPath := os.Getenv("SESSION_DB_PATH")
-	if dbPath == "" {
-		dbPath = "./.cache/sessions.db"
-	}
-	store, err := sqlitestore.NewSqliteStore(dbPath, "sessions", "/", maxAge, key)
+	//dbPath := os.Getenv("SESSION_DB_PATH")
+	//store, err := sqlitestore.NewSqliteStore(dbPath, "sessions", "/", maxAge, key)
+	store, err := redistore.NewRediStore(10, "tcp", "127.0.0.1:6379", "", key)
 	if err != nil {
 		panic(err)
 	}
-	store.Options.Path = "/"
-	store.Options.HttpOnly = true // HttpOnly should always be enabled
-	store.Options.Secure = isProd
+	//store.Options.Path = "/"
+	//store.Options.HttpOnly = true // HttpOnly should always be enabled
+	//store.Options.MaxAge = maxAge
+	//store.Options.Secure = isProd
 
 	gothic.Store = store
 
@@ -77,16 +76,16 @@ func main() {
 
 	r := mux.NewRouter()
 	r.Use(logMw)
-	r.Use(authMw)
+	//r.Use(authMw)
 
 	r.HandleFunc("/auth/{provider}/callback", func(res http.ResponseWriter, req *http.Request) {
 		user, err := gothic.CompleteUserAuth(res, req)
 		if err != nil {
-			t, _ := template.New("error.html").ParseFiles("templates/error.html")
+			t, _ := template.New("error.html").ParseFiles("src/web/templates/error.html")
 			t.Execute(res, err)
 			return
 		}
-		t, _ := template.New("user.html").ParseFiles("templates/user.html")
+		t, _ := template.New("user.html").ParseFiles("src/web/templates/user.html")
 		t.Execute(res, user)
 	})
 
@@ -99,7 +98,7 @@ func main() {
 	r.HandleFunc("/auth/{provider}", func(res http.ResponseWriter, req *http.Request) {
 		// try to get the user without re-authenticating
 		if gothUser, err := gothic.CompleteUserAuth(res, req); err == nil {
-			t, _ := template.New("user.html").ParseFiles("templates/user.html")
+			t, _ := template.New("user.html").ParseFiles("src/web/templates/user.html")
 			t.Execute(res, gothUser)
 			return
 		}
@@ -107,9 +106,9 @@ func main() {
 	})
 
 	r.HandleFunc("/", func(res http.ResponseWriter, req *http.Request) {
-		t, err := template.New("index.html").ParseFiles("templates/index.html")
+		t, err := template.New("index.html").ParseFiles("src/web/templates/index.html")
 		if err != nil {
-			te, _ := template.New("error.html").ParseFiles("templates/error.html")
+			te, _ := template.New("error.html").ParseFiles("src/web/templates/error.html")
 			te.Execute(res, err)
 			return
 		}
