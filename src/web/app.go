@@ -13,7 +13,7 @@ import (
 	"github.com/markbates/goth"
 	"github.com/markbates/goth/gothic"
 	"github.com/markbates/goth/providers/github"
-	"github.com/boj/redistore"
+	"github.com/gorilla/sessions"
 )
 
 func logMw(next http.Handler) http.Handler {
@@ -55,19 +55,13 @@ func main() {
 	}
 
 	key := []byte("test!2#")
-	//maxAge := 86400 * 30 // 30 days
-	//isProd := false      // Set to true when serving over https
+	maxAge := -1
 
-	//dbPath := os.Getenv("SESSION_DB_PATH")
-	//store, err := sqlitestore.NewSqliteStore(dbPath, "sessions", "/", maxAge, key)
-	store, err := redistore.NewRediStore(10, "tcp", "127.0.0.1:6379", "", key)
-	if err != nil {
-		panic(err)
-	}
-	//store.Options.Path = "/"
-	//store.Options.HttpOnly = true // HttpOnly should always be enabled
-	//store.Options.MaxAge = maxAge
-	//store.Options.Secure = isProd
+	store := sessions.NewCookieStore(key)
+	store.Options.Path = "/"
+	store.Options.Domain = "localhost"
+	store.Options.HttpOnly = true
+	store.Options.MaxAge = maxAge
 
 	gothic.Store = store
 
