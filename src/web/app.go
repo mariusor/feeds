@@ -101,13 +101,14 @@ func main() {
 	})
 
 	r.HandleFunc("/", func(res http.ResponseWriter, req *http.Request) {
-		t, err := template.New("index.html").ParseFiles("src/web/templates/index.html")
-		if err != nil {
-			te, _ := template.New("error.html").ParseFiles("src/web/templates/error.html")
-			te.Execute(res, err)
-			return
+		var t *template.Template
+		if gothUser, err := gothic.CompleteUserAuth(res, req); err == nil {
+			t, _ = template.New("user.html").ParseFiles("src/web/templates/user.html")
+			t.Execute(res, gothUser)
+		} else {
+			t,_ = template.New("index.html").ParseFiles("src/web/templates/index.html")
+			t.Execute(res, providerIndex)
 		}
-		t.Execute(res, providerIndex)
 	})
 
 	log.Fatal(http.ListenAndServe(listenDomain + ":3000", r))
