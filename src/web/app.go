@@ -14,6 +14,7 @@ import (
 	"github.com/markbates/goth/gothic"
 	"github.com/markbates/goth/providers/github"
 	"github.com/gorilla/sessions"
+	"github.com/gorilla/securecookie"
 )
 
 func logMw(next http.Handler) http.Handler {
@@ -31,15 +32,16 @@ func authMw(next http.Handler) http.Handler {
 }
 
 func main() {
+	listenDomain := "myk.localdomain"
 	goth.UseProviders(
-		//twitter.New(os.Getenv("TWITTER_KEY"), os.Getenv("TWITTER_SECRET"), "http://localhost:3000/auth/twitter/callback"),
+		//twitter.New(os.Getenv("TWITTER_KEY"), os.Getenv("TWITTER_SECRET"), "http://"+listenDomain+":3000/auth/twitter/callback"),
 		// If you'd like to use authenticate instead of authorize in Twitter provider, use this instead.
-		//twitter.NewAuthenticate(os.Getenv("TWITTER_KEY"), os.Getenv("TWITTER_SECRET"), "http://localhost:3000/auth/twitter/callback"),
+		//twitter.NewAuthenticate(os.Getenv("TWITTER_KEY"), os.Getenv("TWITTER_SECRET"), "http://"+listenDomain+":3000/auth/twitter/callback"),
 
-		//facebook.New(os.Getenv("FACEBOOK_KEY"), os.Getenv("FACEBOOK_SECRET"), "http://localhost:3000/auth/facebook/callback"),
+		//facebook.New(os.Getenv("FACEBOOK_KEY"), os.Getenv("FACEBOOK_SECRET"), "http://"+listenDomain+":3000/auth/facebook/callback"),
 		//gplus.New(os.Getenv("GPLUS_KEY"), os.Getenv("GPLUS_SECRET"), "http://localhost:3000/auth/gplus/callback"),
-		github.New(os.Getenv("GITHUB_KEY"), os.Getenv("GITHUB_SECRET"), "http://localhost:3000/auth/github/callback"),
-		//gitlab.New(os.Getenv("GITLAB_KEY"), os.Getenv("GITLAB_SECRET"), "http://localhost:3000/auth/gitlab/callback"),
+		github.New(os.Getenv("GITHUB_KEY"), os.Getenv("GITHUB_SECRET"), "http://"+listenDomain+":3000/auth/github/callback"),
+		//gitlab.New(os.Getenv("GITLAB_KEY"), os.Getenv("GITLAB_SECRET"), "http://"+listenDomain+":3000/auth/gitlab/callback"),
 	)
 
 	m := make(map[string]string)
@@ -54,12 +56,11 @@ func main() {
 		keys = append(keys, k)
 	}
 
-	key := []byte("test!2#")
-	maxAge := -1
-
-	store := sessions.NewCookieStore(key)
+	key := securecookie.GenerateRandomKey(32)
+	maxAge := 8600 * 30
+	store := sessions.NewFilesystemStore("", key)
 	store.Options.Path = "/"
-	store.Options.Domain = "localhost"
+	store.Options.Domain = listenDomain
 	store.Options.HttpOnly = true
 	store.Options.MaxAge = maxAge
 
@@ -108,7 +109,8 @@ func main() {
 		}
 		t.Execute(res, providerIndex)
 	})
-	log.Fatal(http.ListenAndServe(":3000", r))
+
+	log.Fatal(http.ListenAndServe(listenDomain + ":3000", r))
 }
 
 type ProviderIndex struct {
