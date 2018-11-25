@@ -16,6 +16,8 @@ const htmlDir = "articles"
 const mobiDir = "output/mobi"
 const dbFilePath = "feeds.db"
 
+const halfDay = float64(time.Hour * 12)
+
 func createTables(c *sqlite3.Conn) (bool, error) {
 	feeds := "CREATE TABLE feeds (" +
 		"id INTEGER PRIMARY KEY ASC, " +
@@ -165,11 +167,9 @@ func main() {
 		s.Scan(&feedId, &url, &feedFrequency, &lastLoaded, &feedTitle)
 		log.Printf("Feed %s\n", url)
 		if feedFrequency == 0.0 {
-			feedFrequency = 4320000000000000.0 // 12h
+			feedFrequency = halfDay
 		}
-		if !lastLoaded.IsZero() {
-
-		}
+		if !lastLoaded.IsZero() {}
 		last := time.Now().Sub(lastLoaded)
 		log.Printf("Last checked %s ago", last.String())
 		if last.Seconds() > feedFrequency {
