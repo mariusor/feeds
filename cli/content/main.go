@@ -15,7 +15,6 @@ import (
 )
 
 const htmlDir = "articles"
-const mobiDir = "output/mobi"
 const dbFilePath = "feeds.db"
 
 func toReadableHtml(content []byte) ([]byte, string, error) {

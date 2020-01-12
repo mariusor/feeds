@@ -38,10 +38,6 @@ content: bin/content
 bin/content: go.mod cli/content/main.go $(APPSOURCES)
 	$(BUILD) -tags $(ENV) -o $@ ./cli/content/main.go
 
-web: bin/web
-bin/web: go.mod cli/web/main.go $(APPSOURCES)
-	$(BUILD) -tags $(ENV) -o $@ ./cli/web/main.go
-
 mobi: bin/mobi
 bin/mobi: go.mod cli/mobi/main.go $(APPSOURCES)
 	$(BUILD) -tags $(ENV) -o $@ ./cli/mobi/main.go
@@ -54,5 +50,31 @@ dispatch: bin/dispatch
 bin/dispatch: go.mod cli/dispatch/main.go $(APPSOURCES)
 	$(BUILD) -tags $(ENV) -o $@ ./cli/dispatch/main.go
 
+web: bin/web
+bin/web: go.mod cli/web/main.go $(APPSOURCES)
+	$(BUILD) -tags $(ENV) -o $@ ./cli/web/main.go
+
 clean:
 	-$(RM) bin/*
+
+units: all
+
+
+install: units
+	install bin/content $(DESTDIR)$(INSTALL_PREFIX)/bin/fcontent
+	install bin/mobi $(DESTDIR)$(INSTALL_PREFIX)/bin/fmobi
+	install bin/feeds $(DESTDIR)$(INSTALL_PREFIX)/bin/ffeeds
+	install bin/dispatch $(DESTDIR)$(INSTALL_PREFIX)/bin/fdispatch
+	install -m 644 *.service $(DESTDIR)$(INSTALL_PREFIX)/usr/lib/systemd/
+	install -m 644 *.timer $(DESTDIR)$(INSTALL_PREFIX)/usr/lib/systemd/
+
+uninstall:
+	$(RM) $(DESTDIR)$(INSTALL_PREFIX)/bin/fcontent
+	$(RM) $(DESTDIR)$(INSTALL_PREFIX)/bin/fmobi
+	$(RM) $(DESTDIR)$(INSTALL_PREFIX)/bin/ffeeds
+	$(RM) $(DESTDIR)$(INSTALL_PREFIX)/bin/fdispatch
+	$(RM) $(DESTDIR)$(INSTALL_PREFIX)/usr/lib/systemd/fcontent.service
+	$(RM) $(DESTDIR)$(INSTALL_PREFIX)/usr/lib/systemd/fmobi.service
+	$(RM) $(DESTDIR)$(INSTALL_PREFIX)/usr/lib/systemd/ffeeds.service
+	$(RM) $(DESTDIR)$(INSTALL_PREFIX)/usr/lib/systemd/ffeeds.service
+	$(RM) $(DESTDIR)$(INSTALL_PREFIX)/usr/lib/systemd/fdispatch.service

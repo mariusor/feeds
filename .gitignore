@@ -2,3 +2,4 @@
 .idea
 src/web/app
 src/web/go_build_app_go
+bin/*

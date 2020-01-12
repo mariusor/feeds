@@ -12,8 +12,6 @@ import (
 	"path"
 )
 
-const htmlDir = "articles"
-const mobiDir = "output/mobi"
 const dbFilePath = "feeds.db"
 
 const halfDay = float64(time.Hour * 12)
