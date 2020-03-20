@@ -225,7 +225,7 @@ func GetContentsForMobi(c *sql.DB) ([]Content, error) {
 	all := make([]Content, 0)
 	for s.Next() {
 		cont := Content{}
-		s.Scan(&cont.Item.ID, &cont.Item.Feed.Title, &cont.Item.Title, &cont.Item.Author, &cont.HTMLPath)
+		s.Scan(&cont.ID, &cont.Item.Feed.Title, &cont.Item.Title, &cont.Item.Author, &cont.HTMLPath)
 		all = append(all, cont)
 	}
 

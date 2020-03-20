@@ -25,11 +25,11 @@ type destination struct {
 	To string `json:"to"`
 }
 
-func DispatchToKindle(subject string, attachment string, c *sql.DB) error {
+func DispatchToKindle(subject string, attachment string, c *sql.DB) (bool, error) {
 	targets := "SELECT targets.data, outputs.credentials FROM targets INNER JOIN outputs ON outputs.id = targets.output_id WHERE outputs.type = 'kindle'"
 	r, err := c.Query(targets)
 	if err != nil {
-		return err
+		return false, err
 	}
 	for r.Next() {
 		var data []byte
@@ -41,24 +41,24 @@ func DispatchToKindle(subject string, attachment string, c *sql.DB) error {
 		var target destination
 		err = json.Unmarshal(credentials, &settings)
 		if err != nil {
-			return err
+			return false, err
 		}
 		err = json.Unmarshal(data, &target)
 		if err != nil {
-			return err
+			return false, err
 		}
 		e := email.NewEmail()
 		log.Printf("Emailing %s to %s", attachment, target.To)
 
 		e.From = settings.From
 		e.To = []string{target.To}
-		e.Cc = []string{"marius.orcsik@gmail.com"}
+		e.Bcc = []string{settings.From}
 		e.Subject = subject
 		e.AttachFile(attachment)
 		err = e.Send(settings.Server+":"+settings.Port, smtp.PlainAuth("", settings.User, settings.Password, settings.Server))
 		if err != nil {
-			return err
+			return false, err
 		}
 	}
-	return nil
+	return true, nil
 }

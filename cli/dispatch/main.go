@@ -33,12 +33,12 @@ func main() {
 
 	all, err := feeds.GetNonDispatchedItemContents(c)
 	for _, cont := range all {
-		err = feeds.DispatchToKindle(cont.Item.Title, cont.MobiPath, c)
+		st, err := feeds.DispatchToKindle(cont.Item.Title, cont.MobiPath, c)
 		if err != nil {
 			log.Print("Error: %s", err)
 			continue
 		}
 		updateFeed := "UPDATE items_contents SET dispatched = ? WHERE id = ?"
-		c.Exec(updateFeed, true, cont.Item.ID)
+		c.Exec(updateFeed, st, cont.Item.ID)
 	}
 }

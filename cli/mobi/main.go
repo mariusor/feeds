@@ -43,6 +43,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error: %s", err)
 	}
+	defer s.Close()
 	for _, cont := range all {
 		log.Printf("File %s\n", path.Base(cont.HTMLPath))
 
@@ -50,9 +51,9 @@ func main() {
 		if err != nil {
 			log.Fatal("Error: %s", err)
 		}
+		defer f.Close()
 		buf := new(bytes.Buffer)
 		buf.ReadFrom(f)
-		f.Close()
 
 		mobiPath := path.Join(mobiBasePath, cont.Item.Feed.Title)
 		if _, err = os.Stat(mobiPath); os.IsNotExist(err) {
@@ -62,11 +63,19 @@ func main() {
 		if !path.IsAbs(mobiPath) {
 			mobiPath, _ = filepath.Abs(mobiPath)
 		}
-		err = feeds.ToMobi(buf.Bytes(), cont.Item.Title, cont.Item.Author, mobiPath)
-		if err != nil {
-			log.Printf("Unable to save file %s", mobiPath)
-			continue
+
+		if _, err := os.Stat(mobiPath); os.IsNotExist(err) {
+			err = feeds.ToMobi(buf.Bytes(), cont.Item.Title, cont.Item.Author, mobiPath)
+			if err != nil {
+				log.Printf("Unable to save file %s", mobiPath)
+				continue
+			}
 		}
-		s.Exec(mobiPath, cont.ID)
+		_, err = s.Exec(mobiPath, cont.ID)
+		if err != nil {
+			log.Printf("Unable to update path %s", mobiPath)
+		} else {
+			log.Printf("Updated content items [%d]: %s", cont.ID, mobiPath)
+		}
 	}
 }
