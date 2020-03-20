@@ -34,49 +34,39 @@ func main() {
 	}
 	defer c.Close()
 
-	sql := "SELECT items_contents.id, feeds.title, items.title, items.author, html_path " +
-		"FROM items_contents " +
-		"INNER JOIN items ON items.id = items_contents.item_id " +
-		"INNER JOIN feeds ON feeds.id = items.feed_id WHERE mobi_path IS NULL"
-
-	s, err := c.Query(sql)
+	all, err := feeds.GetContentsForMobi(c)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("Error: %s", err)
 	}
-	for s.Next() {
-		var itemId int64
-		var feedTitle string
-		var itemTitle string
-		var itemAuthor string
-		var htmlPath string
+	updateFeed := "UPDATE items_contents SET mobi_path = ? WHERE id = ?"
+	s, err := c.Prepare(updateFeed)
+	if err != nil {
+		log.Fatalf("Error: %s", err)
+	}
+	for _, cont := range all {
+		log.Printf("File %s\n", path.Base(cont.HTMLPath))
 
-		s.Scan(&itemId, &feedTitle, &itemTitle, &itemAuthor, &htmlPath)
-		log.Printf("File %s\n", path.Base(htmlPath))
-
-		f, err := os.Open(htmlPath)
+		f, err := os.Open(cont.HTMLPath)
 		if err != nil {
-			log.Fatal(err)
-			os.Exit(1)
+			log.Fatal("Error: %s", err)
 		}
 		buf := new(bytes.Buffer)
 		buf.ReadFrom(f)
 		f.Close()
 
-		mobiPath := path.Join(mobiBasePath, feedTitle)
+		mobiPath := path.Join(mobiBasePath, cont.Item.Feed.Title)
 		if _, err = os.Stat(mobiPath); os.IsNotExist(err) {
 			err = os.Mkdir(mobiPath, 0755)
 		}
-		mobiPath = path.Join(mobiPath, itemTitle+".mobi")
+		mobiPath = path.Join(mobiPath, cont.Item.Title+".mobi")
 		if !path.IsAbs(mobiPath) {
 			mobiPath, _ = filepath.Abs(mobiPath)
 		}
-		err = feeds.ToMobi(buf.Bytes(), itemTitle, itemAuthor, mobiPath)
+		err = feeds.ToMobi(buf.Bytes(), cont.Item.Title, cont.Item.Author, mobiPath)
 		if err != nil {
-			log.Fatalf("Unable to save file %s", mobiPath)
+			log.Printf("Unable to save file %s", mobiPath)
 			continue
 		}
-		args := []interface{}{mobiPath, itemId}
-		updateFeed := "UPDATE items_contents SET mobi_path = ? WHERE id = ?"
-		c.Exec(updateFeed, args...)
+		s.Exec(mobiPath, cont.ID)
 	}
 }

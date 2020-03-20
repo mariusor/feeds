@@ -5,31 +5,23 @@ import (
 	"time"
 )
 
-type Feed struct {
-	ID        int
-	URL       url.URL
-	Title     string
-	Frequency time.Duration
-	Updated   time.Time
-}
-
 type Item struct {
 	ID        int
-	URL       url.URL
-	FeedID    int
+	URL       *url.URL
 	GUID      string
 	Title     string
 	Author    string
 	Published time.Time
 	Updated   time.Time
 	Status    int
+	Feed      Feed
 }
 
 type Content struct {
 	ID         int
-	URL        url.URL
-	ItemID     int
+	URL        *url.URL
 	HTMLPath   string
 	MobiPath   string
 	Dispatched bool
+	Item       Item
 }

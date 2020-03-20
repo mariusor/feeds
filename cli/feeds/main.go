@@ -11,7 +11,7 @@ import (
 	"path"
 )
 
-const halfDay = float64(time.Hour * 12)
+const halfDay = time.Hour * 1
 
 func main() {
 	var basePath string
@@ -26,42 +26,32 @@ func main() {
 	}
 	defer c.Close()
 
-	sql := "SELECT id, url, frequency, last_loaded, title FROM feeds"
-	s, err := c.Query(sql)
+	all, err := feeds.GetFeeds(c)
 	if err != nil {
 		log.Fatal(err)
 	}
-	for s.Next() {
-		var feedId int64
-		var feedFrequency float64
-		var feedTitle string
-		var url string
-		var lastLoaded time.Time
 
-		s.Scan(&feedId, &url, &feedFrequency, &lastLoaded, &feedTitle)
-		log.Printf("Feed %s\n", url)
-		if feedFrequency == 0.0 {
-			feedFrequency = halfDay
+	for _, f := range all {
+		log.Printf("Feed %s\n", f.URL.String())
+		if f.Frequency == 0.0 {
+			f.Frequency = halfDay
 		}
-		if !lastLoaded.IsZero() {
+		var last time.Duration = 0
+		if !f.Updated.IsZero() {
+			last = time.Now().Sub(f.Updated)
+			log.Printf("Last checked %s ago", last.String())
 		}
-		last := time.Now().Sub(lastLoaded)
-		log.Printf("Last checked %s ago", last.String())
-		if last.Seconds() > feedFrequency {
-			log.Printf(" ...newer than %s, skipping.\n", time.Duration(feedFrequency).String())
+		if last > f.Frequency {
+			log.Printf(" ...newer than %s, skipping.\n", time.Duration(f.Frequency).String())
 			continue
-		} else {
-			log.Println(" ...loading")
 		}
 
-		_, err = feeds.CheckFeed(url, feedId, c)
-
+		_, err = feeds.CheckFeed(f, c)
 		if err != nil {
 			log.Fatal(err)
 			continue
 		}
-		args := []interface{}{time.Now()}
 		updateFeed := "UPDATE feeds SET lastLoaded = ?"
-		c.Exec(updateFeed, args)
+		c.Exec(updateFeed, time.Now())
 	}
 }

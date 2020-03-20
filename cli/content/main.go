@@ -31,24 +31,17 @@ func main() {
 	}
 	defer c.Close()
 
-	sql := "SELECT items.id, feeds.title, items.url FROM items INNER JOIN feeds LEFT JOIN items_contents ON items_contents.item_id = items.id WHERE items_contents.id IS NULL"
-	s, err := c.Query(sql)
-	defer s.Close()
+	all, err := feeds.GetNonFetchedItems(c)
 	if err != nil {
-		log.Fatal(err)
+		log.Print("Error: %s", err)
 	}
-	for s.Next() {
-		var itemId int64
-		var feedTitle string
-		var itemUrl string
-
-		s.Scan(&itemId, &feedTitle, &itemUrl)
-
-		htmlPath := path.Join(htmlBasePath, feedTitle)
+	for _, it := range all {
+		log.Printf("Loading %s [%s]", it.URL.String(), "OK")
+		htmlPath := path.Join(htmlBasePath, it.Feed.Title)
 		if _, err = os.Stat(htmlPath); os.IsNotExist(err) {
 			err = os.Mkdir(htmlPath, 0755)
 		}
-		err = feeds.LoadItem(itemId, itemUrl, c, htmlPath)
+		err = feeds.LoadItem(it, c, htmlPath)
 		if err != nil {
 			log.Fatal(err)
 			continue
