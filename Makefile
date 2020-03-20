@@ -5,7 +5,7 @@ SHELL := bash
 MAKEFLAGS += --warn-undefined-variables
 MAKEFLAGS += --no-builtin-rules
 
-export CGO_ENABLED=0
+#export CGO_ENABLED=0
 export GOOS=linux
 export GOARCH=amd64
 export VERSION=(unknown)
@@ -13,7 +13,7 @@ GO := go
 ENV ?= dev
 LDFLAGS ?= -X main.version=$(VERSION)
 BUILDFLAGS ?= -a -ldflags '$(LDFLAGS)'
-APPSOURCES := $(wildcard cmd/*.go)
+APPSOURCES := $(wildcard *.go) go.mod
 PROJECT_NAME := $(shell basename $(PWD))
 
 ifneq ($(ENV), dev)
@@ -35,23 +35,23 @@ TEST := $(GO) test $(BUILDFLAGS)
 all: content dispatch feeds mobi web
 
 content: bin/content
-bin/content: go.mod cli/content/main.go $(APPSOURCES)
+bin/content: cli/content/main.go $(APPSOURCES)
 	$(BUILD) -tags $(ENV) -o $@ ./cli/content/main.go
 
 mobi: bin/mobi
-bin/mobi: go.mod cli/mobi/main.go $(APPSOURCES)
+bin/mobi: cli/mobi/main.go $(APPSOURCES)
 	$(BUILD) -tags $(ENV) -o $@ ./cli/mobi/main.go
 
 feeds: bin/feeds
-bin/feeds: go.mod cli/feeds/main.go $(APPSOURCES)
+bin/feeds: cli/feeds/main.go $(APPSOURCES)
 	$(BUILD) -tags $(ENV) -o $@ ./cli/feeds/main.go
 
 dispatch: bin/dispatch
-bin/dispatch: go.mod cli/dispatch/main.go $(APPSOURCES)
+bin/dispatch: cli/dispatch/main.go $(APPSOURCES)
 	$(BUILD) -tags $(ENV) -o $@ ./cli/dispatch/main.go
 
 web: bin/web
-bin/web: go.mod cli/web/main.go $(APPSOURCES)
+bin/web: cli/web/main.go $(APPSOURCES)
 	$(BUILD) -tags $(ENV) -o $@ ./cli/web/main.go
 
 clean:
