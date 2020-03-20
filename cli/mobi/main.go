@@ -71,6 +71,10 @@ func main() {
 				continue
 			}
 		}
+		if _, err := os.Stat(mobiPath); err != nil {
+			log.Printf("Error: %s", err)
+			continue
+		}
 		_, err = s.Exec(mobiPath, cont.ID)
 		if err != nil {
 			log.Printf("Unable to update path %s", mobiPath)
@@ -78,4 +82,5 @@ func main() {
 			log.Printf("Updated content items [%d]: %s", cont.ID, mobiPath)
 		}
 	}
+
 }

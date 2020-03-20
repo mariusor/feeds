@@ -3,6 +3,7 @@ package feeds
 import (
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"github.com/jordan-wright/email"
 	_ "github.com/mattn/go-sqlite3"
 	"log"
@@ -26,6 +27,9 @@ type destination struct {
 }
 
 func DispatchToKindle(subject string, attachment string, c *sql.DB) (bool, error) {
+	if attachment == "" {
+		return false, errors.New("Missing attachment file")
+	}
 	targets := "SELECT targets.data, outputs.credentials FROM targets INNER JOIN outputs ON outputs.id = targets.output_id WHERE outputs.type = 'kindle'"
 	r, err := c.Query(targets)
 	if err != nil {
