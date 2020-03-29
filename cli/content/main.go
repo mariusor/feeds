@@ -6,7 +6,6 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 	"log"
 	"os"
-
 	"path"
 )
 
@@ -33,10 +32,10 @@ func main() {
 
 	all, err := feeds.GetNonFetchedItems(c)
 	if err != nil {
-		log.Print("Error: %s", err)
+		log.Printf("Error: %s", err)
 	}
 	for _, it := range all {
-		log.Printf("Loading %s [%s]", it.URL.String(), "OK")
+		log.Printf("Loading[%4d] %s [%s]", it.ID, it.URL.String(), "OK")
 		htmlPath := path.Join(htmlBasePath, it.Feed.Title)
 		if _, err = os.Stat(htmlPath); os.IsNotExist(err) {
 			err = os.Mkdir(htmlPath, 0755)

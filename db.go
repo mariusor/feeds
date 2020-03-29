@@ -74,10 +74,12 @@ func createTables(c *sql.DB) error {
 		return err
 	}
 
-	insert := "INSERT INTO feeds (url, frequency, last_loaded) VALUES(?, ?, ?)"
-	if _, err := c.Exec(insert, "https://www.parahumans.net/feed/", 120000000000, nil); err != nil {
-		return err
-	}
+	/*
+		insert := "INSERT INTO feeds (url, frequency, last_loaded) VALUES(?, ?, ?)"
+		if _, err := c.Exec(insert, "https://www.parahumans.net/feed/", 120000000000, nil); err != nil {
+			return err
+		}
+	*/
 
 	users := "CREATE TABLE users ( id INTEGER PRIMARY KEY ASC );"
 	if _, err := c.Exec(users); err != nil {
@@ -171,7 +173,7 @@ func GetFeeds(c *sql.DB) ([]Feed, error) {
 }
 
 func GetNonFetchedItems(c *sql.DB) ([]Item, error) {
-	sql := "SELECT items.id, feeds.title, items.url FROM items INNER JOIN feeds LEFT JOIN items_contents ON items_contents.item_id = items.id WHERE items_contents.id IS NULL"
+	sql := "SELECT items.id, feeds.title, items.url FROM items INNER JOIN feeds ON feeds.id = items.feed_id LEFT JOIN items_contents ON items_contents.item_id = items.id WHERE items_contents.id IS NULL group by items.id"
 	s, err := c.Query(sql)
 	if err != nil {
 		return nil, err
