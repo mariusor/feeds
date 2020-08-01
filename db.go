@@ -138,7 +138,7 @@ func LoadItem(it Item, c *sql.DB, htmlPath string) error {
 		return err
 	}
 	// write html to path
-	outPath := path.Join(htmlPath, title+".html")
+	outPath := path.Join(htmlPath, fmt.Sprintf("%s: %s.html", title, it.Title))
 	err = ioutil.WriteFile(outPath, content, 0644)
 	if err != nil {
 		return err
@@ -174,7 +174,7 @@ func GetFeeds(c *sql.DB) ([]Feed, error) {
 }
 
 func GetNonFetchedItems(c *sql.DB) ([]Item, error) {
-	sql := "SELECT items.id, feeds.title, items.url FROM items INNER JOIN feeds ON feeds.id = items.feed_id LEFT JOIN items_contents ON items_contents.item_id = items.id WHERE items_contents.id IS NULL group by items.id"
+	sql := "SELECT items.id, feeds.title as feed_title, items.title as title, items.url FROM items INNER JOIN feeds ON feeds.id = items.feed_id LEFT JOIN items_contents ON items_contents.item_id = items.id WHERE items_contents.id IS NULL group by items.id"
 	s, err := c.Query(sql)
 	if err != nil {
 		return nil, err
@@ -186,7 +186,10 @@ func GetNonFetchedItems(c *sql.DB) ([]Item, error) {
 		it := Item{}
 		var link string
 
-		s.Scan(&it.ID, &it.Feed.Title, &link)
+		err := s.Scan(&it.ID, &it.Feed.Title, &it.Title, &link)
+		if err != nil {
+			continue
+		}
 		it.URL, _ = url.Parse(link)
 
 		all = append(all, it)
