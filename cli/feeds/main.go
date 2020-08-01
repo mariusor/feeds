@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/mariusor/feeds"
-	_ "github.com/mattn/go-sqlite3"
 
 	"path"
 )

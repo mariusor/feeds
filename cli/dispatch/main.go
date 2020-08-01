@@ -3,7 +3,6 @@ package main
 import (
 	"flag"
 	"github.com/mariusor/feeds"
-	_ "github.com/mattn/go-sqlite3"
 	"log"
 	"os"
 	"path"

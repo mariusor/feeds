@@ -2,8 +2,9 @@ package feeds
 
 import (
 	"database/sql"
-	_ "github.com/mattn/go-sqlite3"
+	"fmt"
 	"io/ioutil"
+	_ "modernc.org/sqlite"
 	"net/http"
 	"net/url"
 	"os"
@@ -19,7 +20,7 @@ func DB(basePath string) (*sql.DB, error) {
 	if _, err := os.Stat(dbPath); os.IsNotExist(err) {
 		bootstrap = true
 	}
-	db, err := sql.Open("sqlite3", dbPath)
+	db, err := sql.Open("sqlite", dbPath)
 	if err != nil {
 		return db, err
 	}

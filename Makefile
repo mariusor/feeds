@@ -15,7 +15,6 @@ LDFLAGS ?= -X main.version=$(VERSION)
 BUILDFLAGS ?= -a -ldflags '$(LDFLAGS)'
 APPSOURCES := $(wildcard *.go) go.mod
 PROJECT_NAME := $(shell basename $(PWD))
-CGO_FLAGS := '-Wno-return-local-addr'
 
 ifneq ($(ENV), dev)
 	LDFLAGS += -s -w -extldflags "-static"
