@@ -27,7 +27,7 @@ func CheckFeed(f Feed, c *sql.DB) (bool, error) {
 	count := 0
 
 	updateTitle := "UPDATE feeds SET title = ?, last_loaded = ? WHERE id = ?"
-	c.Exec(updateTitle, doc.Title, time.Now(), f.ID)
+	c.Exec(updateTitle, doc.Title, time.Now().UTC(), f.ID)
 
 	itemSel := "SELECT id FROM items WHERE url = ?"
 	s, err := c.Prepare(itemSel)
