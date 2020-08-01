@@ -1,5 +1,5 @@
 INSERT INTO items (url, title, feed_id, author) values ('https://unsongbook.com/prologue-2/', 'Prologue', 4, 'Scott Alexander');
-INSERT INTO items (url, title, feed_id, author) values ('https://unsongbook.com/book-i-genesis/ ', 'BOOK I: GENESIS', 4, 'Scott Alexander');
+INSERT INTO items (url, title, feed_id, author) values ('https://unsongbook.com/book-i-genesis/', 'BOOK I: GENESIS', 4, 'Scott Alexander');
 INSERT INTO items (url, title, feed_id, author) values ('https://unsongbook.com/chapter-1-dark-satanic-mills/', '1. Dark Satanic Mills', 4, 'Scott Alexander');
 INSERT INTO items (url, title, feed_id, author) values ('https://unsongbook.com/interlude-%D7%90-the-cracks-in-the-sky/', 'Interlude א: The Cracks In The Sky', 4, 'Scott Alexander');
 INSERT INTO items (url, title, feed_id, author) values ('https://unsongbook.com/chapter-2-arise-to-spiritual-strife/', '2. Arise To Spiritual Strife', 4, 'Scott Alexander');
@@ -17,7 +17,7 @@ INSERT INTO items (url, title, feed_id, author) values ('https://unsongbook.com/
 INSERT INTO items (url, title, feed_id, author) values ('https://unsongbook.com/chapter-11-drive-the-just-man-into-barren-climes/', '11. Drive The Just Man Into Barren Climes', 4, 'Scott Alexander');
 INSERT INTO items (url, title, feed_id, author) values ('https://unsongbook.com/interlude-%D7%94-the-right-hand-of-god/', 'Interlude ה: The Right Hand Of God', 4, 'Scott Alexander');
 INSERT INTO items (url, title, feed_id, author) values ('https://unsongbook.com/chapter-12-borne-on-angels-wings/', '12. Borne On Angels’ Wings', 4, 'Scott Alexander');
-INSERT INTO items (url, title, feed_id, author) values ('https://unsongbook.com/interlude-%D7%95-theres-a-hole-in-my-bucket', 'Interlude ו: There’s A Hole In My Bucket', 4, 'Scott Alexander');
+INSERT INTO items (url, title, feed_id, author) values ('https://unsongbook.com/interlude-%D7%95-theres-a-hole-in-my-bucket', 'Inerlude ו: There’s A Hole In My Bucket', 4, 'Scott Alexander');
 INSERT INTO items (url, title, feed_id, author) values ('https://unsongbook.com/chapter-13-the-image-of-eternal-death/', '13. The Image Of Eternal Death', 4, 'Scott Alexander');
 INSERT INTO items (url, title, feed_id, author) values ('https://unsongbook.com/chapter-14-cruelty-has-a-human-heart/', '14. Cruelty Has A Human Heart', 4, 'Scott Alexander');
 INSERT INTO items (url, title, feed_id, author) values ('https://unsongbook.com/chapter-15-o-where-shall-i-hide-my-face/', '15. O Where Shall I Hide My Face', 4, 'Scott Alexander');
@@ -68,7 +68,7 @@ INSERT INTO items (url, title, feed_id, author) values ('https://unsongbook.com/
 INSERT INTO items (url, title, feed_id, author) values ('https://unsongbook.com/chapter-48-bring-me-my-chariot-of-fire/', '48. Bring Me My Chariot Of Fire', 4, 'Scott Alexander');
 INSERT INTO items (url, title, feed_id, author) values ('https://unsongbook.com/interlude-%d7%a1-binary/', 'Interlude ס: Binary', 4, 'Scott Alexander');
 INSERT INTO items (url, title, feed_id, author) values ('https://unsongbook.com/chapter-49-terrors-of-the-sun-and-moon/', '49. Terrors Of The Sun And Moon', 4, 'Scott Alexander');
-INSERT INTO items (url, title, feed_id, author) values ('https://unsongbook.com/interlude-%D7%A4-hell-on-earth/', 'Interlude ע‎: Hell On Earth', 4, 'Scott Alexander');
+INSERT INTO items (url, title, feed_id, author) values ('https://unsongbook.com/interlude-%D7%A4-hell-on-earth/', 'Interlude ע: Hell On Earth', 4, 'Scott Alexander');
 INSERT INTO items (url, title, feed_id, author) values ('https://unsongbook.com/chapter-50-silent-as-despairing-love/', '50. Silent As Despairing Love', 4, 'Scott Alexander');
 INSERT INTO items (url, title, feed_id, author) values ('https://unsongbook.com/interlude-%D7%A2%E2%80%8E-eighties-and-nineties/', 'Interludes פ and צ: The 80s And 90s', 4, 'Scott Alexander');
 INSERT INTO items (url, title, feed_id, author) values ('https://unsongbook.com/chapter-51-he-wondered-that-he-felt-love/', '51. He Wondered That He Felt Love', 4, 'Scott Alexander');
@@ -79,13 +79,13 @@ INSERT INTO items (url, title, feed_id, author) values ('https://unsongbook.com/
 INSERT INTO items (url, title, feed_id, author) values ('https://unsongbook.com/chapter-55-none-can-visit-his-regions/', '55. None Can Visit His Regions', 4, 'Scott Alexander');
 INSERT INTO items (url, title, feed_id, author) values ('https://unsongbook.com/interlude-%D7%A8-the-shrouded-constitution/', 'Interlude ר: The Shrouded Constitution', 4, 'Scott Alexander');
 INSERT INTO items (url, title, feed_id, author) values ('https://unsongbook.com/chapter-56-agony-in-the-garden/', '56. Agony In The Garden', 4, 'Scott Alexander');
-INSERT INTO items (url, title, feed_id, author) values ('https://unsongbook.com/interlude-%D7%A9-obama/', 'Interlude ש‎: Obama', 4, 'Scott Alexander');
+INSERT INTO items (url, title, feed_id, author) values ('https://unsongbook.com/interlude-%D7%A9-obama/', 'Interlude ש: Obama', 4, 'Scott Alexander');
 INSERT INTO items (url, title, feed_id, author) values ('https://unsongbook.com/chapter-57-now-taking-on-ahanias-form/', '57. Now Taking On Ahania’s Form', 4, 'Scott Alexander');
 INSERT INTO items (url, title, feed_id, author) values ('https://unsongbook.com/chapter-58-and-now-the-form-of-enion/', '58. And Now The Form Of Enion', 4, 'Scott Alexander');
-INSERT INTO items (url, title, feed_id, author) values ('https://unsongbook.com/interlude-%D7%AA-trump/', 'Interlude ת‎: Trump', 4, 'Scott Alexander');
+INSERT INTO items (url, title, feed_id, author) values ('https://unsongbook.com/interlude-%D7%AA-trump/', 'Interlude ת: Trump', 4, 'Scott Alexander');
 INSERT INTO items (url, title, feed_id, author) values ('https://unsongbook.com/chapter-59-clothe-yourself-in-golden-arms/', '59. Clothe Yourself In Golden Arms', 4, 'Scott Alexander');
 INSERT INTO items (url, title, feed_id, author) values ('https://unsongbook.com/chapter-60-o-rose-thou-art-sick/', '60. O Rose, Thou Art Sick', 4, 'Scott Alexander');
-INSERT INTO items (url, title, feed_id, author) values ('https://unsongbook.com/chapter-61-and-ololon-said-let-us-descend-also-and-let-us-give-ourselves-to-death-in-ulro-among-the-transgressors/.', '61. And Ololon Said, Let Us Descend Also, And Let Us Give Ourselves To Death In Ulro Among The Transgressors', 4, 'Scott Alexander');
+INSERT INTO items (url, title, feed_id, author) values ('https://unsongbook.com/chapter-61-and-ololon-said-let-us-descend-also-and-let-us-give-ourselves-to-death-in-ulro-among-the-transgressors/', '61. And Ololon Said, Let Us Descend Also, And Let Us Give Ourselves To Death In Ulro Among The Transgressors', 4, 'Scott Alexander');
 INSERT INTO items (url, title, feed_id, author) values ('https://unsongbook.com/chapter-62-that-the-wide-world-might-fly-from-its-hinges/', '62. That The Wide World Might Fly From Its Hinges', 4, 'Scott Alexander');
 INSERT INTO items (url, title, feed_id, author) values ('https://unsongbook.com/chapter-63-my-wrath-burns-to-the-top-of-heaven/', '63. My Wrath Burns To The Top Of Heaven', 4, 'Scott Alexander');
 INSERT INTO items (url, title, feed_id, author) values ('https://unsongbook.com/chapter-64-another-better-world-shall-be/', '64. Another Better World Shall Be', 4, 'Scott Alexander');
