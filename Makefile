@@ -5,7 +5,6 @@ SHELL := bash
 MAKEFLAGS += --warn-undefined-variables
 MAKEFLAGS += --no-builtin-rules
 
-#export CGO_ENABLED=0
 export GOOS=linux
 export GOARCH=amd64
 export VERSION=(unknown)
@@ -15,6 +14,8 @@ LDFLAGS ?= -X main.version=$(VERSION)
 BUILDFLAGS ?= -a -ldflags '$(LDFLAGS)'
 APPSOURCES := $(wildcard *.go) go.mod
 PROJECT_NAME := $(shell basename $(PWD))
+export CGO_ENABLED=1
+export CGO_FLAGS='-Wno-return-local-addr'
 
 ifneq ($(ENV), dev)
 	LDFLAGS += -s -w -extldflags "-static"

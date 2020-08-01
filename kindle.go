@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"github.com/jordan-wright/email"
+	_ "github.com/mattn/go-sqlite3"
 	"log"
-	_ "modernc.org/sqlite"
 	"net/smtp"
 )
 
