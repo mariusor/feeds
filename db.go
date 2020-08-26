@@ -167,8 +167,9 @@ func GetFeeds(c *sql.DB) ([]Feed, error) {
 		var link string
 		f := Feed{}
 		s.Scan(&f.ID, &link, &f.Frequency, &f.Updated, &f.Title, &f.Author)
-		f.URL, _ = url.Parse(link)
-		all = append(all, f)
+		if f.URL, err = url.Parse(link); err == nil {
+			all = append(all, f)
+		}
 	}
 	return all, nil
 }
