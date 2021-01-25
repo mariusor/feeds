@@ -3,4 +3,5 @@ insert into feeds (url, title, author) values ('https://www.royalroad.com/syndic
 insert into feeds (url, title, author) values ('https://pyrebound.wordpress.com/feed/', 'Pyrebound', 'theredsheep');
 insert into feeds (url, title, author) values ('https://unsongbook.com/feed/', 'Unsong', 'Scott Alexander');
 insert into feeds (title, author) values ('Mother of Learning', 'Nobody103');
+insert into feeds (url, title, author) values ('https://palewebserial.wordpress.com/feed/','Pale', 'Wildbow');
 insert into feeds (url, title, author) values ('https://wanderinginn.wordpress.com/feed/', 'The Wandering Inn', 'PirateAba');
