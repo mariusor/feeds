@@ -483,3 +483,9 @@ INSERT INTO items (url, title, feed_id, author); values ('https://wanderinginn.c
 INSERT INTO items (url, title, feed_id, author); values ('https://wanderinginn.com/2021/01/13/8-01/', 'The Wandering Inn: 8.01', 7, 'PirateAba');
 INSERT INTO items (url, title, feed_id, author); values ('https://wanderinginn.com/2021/01/17/8-02/', 'The Wandering Inn: 8.02', 7, 'PirateAba');
 INSERT INTO items (url, title, feed_id, author); values ('https://wanderinginn.com/2021/01/20/8-03/', 'The Wandering Inn: 8.03', 7, 'PirateAba');
+INSERT INTO items (url, title, feed_id, author); values ('https://wanderinginn.com/2021/01/24/interlude-the-revenant-and-the-naga/', 'The Wandering Inn: Interlude - The Revenant and the Naga', 7, 'PirateAba');
+INSERT INTO items (url, title, feed_id, author); values ('https://wanderinginn.com/2021/01/27/8-04-t/', 'The Wandering Inn: 8.04 T', 7, 'PirateAba');
+INSERT INTO items (url, title, feed_id, author); values ('https://wanderinginn.com/2021/02/07/8-05-i/', 'The Wandering Inn: 8.05 I', 7, 'PirateAba');
+INSERT INTO items (url, title, feed_id, author); values ('https://wanderinginn.com/2021/02/10/8-06-rt/', 'The Wandering Inn: 8.06 RT', 7, 'PirateAba');
+INSERT INTO items (url, title, feed_id, author); values ('https://wanderinginn.com/2021/02/14/8-07-l/', 'The Wandering Inn: 8.07 L', 7, 'PirateAba');
+
