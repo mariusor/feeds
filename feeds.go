@@ -2,11 +2,12 @@ package feeds
 
 import (
 	"database/sql"
-	"github.com/SlyMarbo/rss"
-	_ "github.com/mattn/go-sqlite3"
 	"log"
 	"net/url"
 	"time"
+
+	"github.com/SlyMarbo/rss"
+	_ "github.com/mattn/go-sqlite3"
 )
 
 type Feed struct {

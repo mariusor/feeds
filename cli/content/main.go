@@ -2,10 +2,11 @@ package main
 
 import (
 	"flag"
-	"github.com/mariusor/feeds"
 	"log"
 	"os"
 	"path"
+
+	"github.com/mariusor/feeds"
 )
 
 func main() {

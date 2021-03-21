@@ -10,11 +10,11 @@ import (
 	"log"
 
 	"github.com/gorilla/mux"
+	"github.com/gorilla/securecookie"
+	"github.com/gorilla/sessions"
 	"github.com/markbates/goth"
 	"github.com/markbates/goth/gothic"
 	"github.com/markbates/goth/providers/github"
-	"github.com/gorilla/sessions"
-	"github.com/gorilla/securecookie"
 )
 
 func logMw(next http.Handler) http.Handler {

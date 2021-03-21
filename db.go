@@ -3,13 +3,14 @@ package feeds
 import (
 	"database/sql"
 	"fmt"
-	_ "github.com/mattn/go-sqlite3"
 	"io/ioutil"
 	"net/http"
 	"net/url"
 	"os"
 	"path"
 	"path/filepath"
+
+	_ "github.com/mattn/go-sqlite3"
 )
 
 const DBFilePath = "feeds.db"

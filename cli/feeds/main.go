@@ -3,11 +3,10 @@ package main
 import (
 	"flag"
 	"log"
+	"path"
 	"time"
 
 	"github.com/mariusor/feeds"
-
-	"path"
 )
 
 const halfDay = time.Hour * 1

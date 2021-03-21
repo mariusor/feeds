@@ -3,11 +3,12 @@ package main
 import (
 	"bytes"
 	"flag"
-	"github.com/mariusor/feeds"
 	"log"
 	"os"
 	"path"
 	"path/filepath"
+
+	"github.com/mariusor/feeds"
 )
 
 func main() {
