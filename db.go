@@ -132,7 +132,7 @@ func LoadItem(it Item, c *sql.DB, htmlPath string) error {
 		return err
 	}
 	// write html to path
-	outPath := path.Join(htmlPath, fmt.Sprintf("%s: %s.html", title, it.Title))
+	outPath := path.Join(htmlPath, fmt.Sprintf("%05d %s: %s.html", it.ID, title, it.Title))
 	err = ioutil.WriteFile(outPath, content, 0644)
 	if err != nil {
 		return err

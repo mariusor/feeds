@@ -1,13 +1,17 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"log"
 	"os"
 	"path"
 
 	"github.com/mariusor/feeds"
+	"golang.org/x/sync/errgroup"
 )
+
+const chunkSize = 10
 
 func main() {
 	var basePath string
@@ -32,18 +36,24 @@ func main() {
 
 	all, err := feeds.GetNonFetchedItems(c)
 	if err != nil {
-		log.Printf("Error: %s", err)
+		log.Fatalf("Error: %s", err)
 	}
-	for _, it := range all {
-		log.Printf("Loading[%4d] %s [%s]", it.ID, it.URL.String(), "OK")
-		htmlPath := path.Join(htmlBasePath, it.Feed.Title)
-		if _, err = os.Stat(htmlPath); os.IsNotExist(err) {
-			err = os.Mkdir(htmlPath, 0755)
+	g, _ := errgroup.WithContext(context.Background())
+	for i := 0; i < len(all); i += chunkSize {
+		for j := i; j < i+chunkSize && j < len(all); j++ {
+			it := all[j]
+			htmlPath := path.Join(htmlBasePath, it.Feed.Title)
+			if _, err = os.Stat(htmlPath); os.IsNotExist(err) {
+				err = os.Mkdir(htmlPath, 0755)
+			}
+			g.Go(func() error {
+				err := feeds.LoadItem(it, c, htmlPath)
+				log.Printf("Loaded[%5d] %s [%s]", it.ID, it.URL.String(), "OK")
+				return err
+			})
 		}
-		err = feeds.LoadItem(it, c, htmlPath)
-		if err != nil {
+		if err := g.Wait(); err != nil {
 			log.Fatal(err)
-			continue
 		}
 	}
 }
