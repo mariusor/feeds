@@ -488,4 +488,11 @@ INSERT INTO items (url, title, feed_id, author); values ('https://wanderinginn.c
 INSERT INTO items (url, title, feed_id, author); values ('https://wanderinginn.com/2021/02/07/8-05-i/', 'The Wandering Inn: 8.05 I', 7, 'PirateAba');
 INSERT INTO items (url, title, feed_id, author); values ('https://wanderinginn.com/2021/02/10/8-06-rt/', 'The Wandering Inn: 8.06 RT', 7, 'PirateAba');
 INSERT INTO items (url, title, feed_id, author); values ('https://wanderinginn.com/2021/02/14/8-07-l/', 'The Wandering Inn: 8.07 L', 7, 'PirateAba');
-
+INSERT INTO items (url, title, feed_id, author); values ('https://wanderinginn.com/2021/02/17/8-08-j/', 'The Wandering Inn: 8.08 J', 7, 'PirateAba');
+INSERT INTO items (url, title, feed_id, author); values ('https://wanderinginn.com/2021/02/21/8-09/', 'The Wandering Inn: 8.09', 7, 'PirateAba');
+INSERT INTO items (url, title, feed_id, author); values ('https://wanderinginn.com/2021/02/24/8-10/', 'The Wandering Inn: 8.10', 7, 'PirateAba');
+INSERT INTO items (url, title, feed_id, author); values ('https://wanderinginn.com/2021/03/16/8-11-e-revised/', 'The Wandering Inn: 8.11 E', 7, 'PirateAba');
+INSERT INTO items (url, title, feed_id, author); values ('https://wanderinginn.com/2021/03/10/8-12-t/', 'The Wandering Inn: 8.12 T', 7, 'PirateAba');
+INSERT INTO items (url, title, feed_id, author); values ('https://wanderinginn.com/2021/03/14/interlude-the-rower-and-the-bartender/', 'The Wandering Inn: Interlude – The [Rower] and the [Bartender]', 7, 'PirateAba');
+INSERT INTO items (url, title, feed_id, author); values ('ttps://wanderinginn.com/2021/03/17/8-13-f/', 'The Wandering Inn: 8.13 F', 7, 'PirateAba');
+INSERT INTO items (url, title, feed_id, author); values ('ttps://wanderinginn.com/2021/03/21/8-14-n/', 'The Wandering Inn: 8.14 N', 7, 'PirateAba');
