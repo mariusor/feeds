@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"path"
+	"strings"
 
 	"github.com/mariusor/feeds"
 	"golang.org/x/sync/errgroup"
@@ -42,7 +43,7 @@ func main() {
 	for i := 0; i < len(all); i += chunkSize {
 		for j := i; j < i+chunkSize && j < len(all); j++ {
 			it := all[j]
-			htmlPath := path.Join(htmlBasePath, it.Feed.Title)
+			htmlPath := path.Join(htmlBasePath, strings.TrimSpace(it.Feed.Title))
 			if _, err = os.Stat(htmlPath); os.IsNotExist(err) {
 				err = os.Mkdir(htmlPath, 0755)
 			}

@@ -106,12 +106,12 @@ func main() {
 			t, _ = template.New("user.html").ParseFiles("src/web/templates/user.html")
 			t.Execute(res, gothUser)
 		} else {
-			t,_ = template.New("index.html").ParseFiles("src/web/templates/index.html")
+			t, _ = template.New("index.html").ParseFiles("src/web/templates/index.html")
 			t.Execute(res, providerIndex)
 		}
 	})
 
-	log.Fatal(http.ListenAndServe(listenDomain + ":3000", r))
+	log.Fatal(http.ListenAndServe(listenDomain+":3000", r))
 }
 
 type ProviderIndex struct {

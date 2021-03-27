@@ -2,14 +2,12 @@ package feeds
 
 import (
 	"database/sql"
-	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/url"
 	"os"
 	"path"
 	"path/filepath"
-	"strings"
 
 	_ "modernc.org/sqlite"
 )
@@ -70,6 +68,7 @@ func createTables(c *sql.DB) error {
 		"item_id INTEGER, " +
 		"html_path TEXT, " +
 		"mobi_path TEXT, " +
+		"epub_path TEXT, " +
 		"dispatched INTEGER DEFAULT 0, " +
 		"FOREIGN KEY(item_id) REFERENCES items(id) " +
 		")"
@@ -128,12 +127,12 @@ func LoadItem(it Item, c *sql.DB, htmlPath string) error {
 		return err
 	}
 
-	content, title, err := toReadableHtml(data)
+	content, _, err := toReadableHtml(data)
 	if err != nil {
 		return err
 	}
 	// write html to path
-	outPath := path.Join(htmlPath, fmt.Sprintf("%05d %s: %s.html", it.ID, strings.TrimSpace(title), strings.TrimSpace(it.Title)))
+	outPath := path.Join(htmlPath, it.Path("html"))
 	err = ioutil.WriteFile(outPath, content, 0644)
 	if err != nil {
 		return err
@@ -195,7 +194,7 @@ func GetNonFetchedItems(c *sql.DB) ([]Item, error) {
 }
 
 func GetNonDispatchedItemContents(c *sql.DB) ([]Content, error) {
-	sql := "SELECT items_contents.id, feeds.title, items.title, items.author, mobi_path " +
+	sql := "SELECT items_contents.id, items.id, feeds.title, items.title, items.author, mobi_path, epub_path " +
 		"FROM items_contents " +
 		"INNER JOIN items ON items.id = items_contents.item_id " +
 		"INNER JOIN feeds ON feeds.id = items.feed_id WHERE items_contents.dispatched != 1"
@@ -208,17 +207,17 @@ func GetNonDispatchedItemContents(c *sql.DB) ([]Content, error) {
 	all := make([]Content, 0)
 	for s.Next() {
 		cont := Content{}
-		s.Scan(&cont.Item.ID, &cont.Item.Feed.Title, &cont.Item.Title, &cont.Item.Author, &cont.MobiPath)
+		s.Scan(&cont.ID, &cont.Item.ID, &cont.Item.Feed.Title, &cont.Item.Title, &cont.Item.Author, &cont.MobiPath, &cont.EPubPath)
 		all = append(all, cont)
 	}
 	return all, nil
 }
 
 func GetContentsForMobi(c *sql.DB) ([]Content, error) {
-	sql := "SELECT items_contents.id, feeds.title, items.title, items.author, html_path " +
+	sql := "SELECT items_contents.id, items.id, feeds.title, items.title, items.author, html_path, mobi_path, epub_path " +
 		"FROM items_contents " +
 		"INNER JOIN items ON items.id = items_contents.item_id " +
-		"INNER JOIN feeds ON feeds.id = items.feed_id WHERE mobi_path IS NULL"
+		"INNER JOIN feeds ON feeds.id = items.feed_id WHERE mobi_path IS NULL OR epub_path IS NULL"
 
 	s, err := c.Query(sql)
 	if err != nil {
@@ -227,7 +226,7 @@ func GetContentsForMobi(c *sql.DB) ([]Content, error) {
 	all := make([]Content, 0)
 	for s.Next() {
 		cont := Content{}
-		s.Scan(&cont.ID, &cont.Item.Feed.Title, &cont.Item.Title, &cont.Item.Author, &cont.HTMLPath)
+		s.Scan(&cont.ID, &cont.Item.ID, &cont.Item.Feed.Title, &cont.Item.Title, &cont.Item.Author, &cont.HTMLPath, &cont.MobiPath, &cont.EPubPath)
 		all = append(all, cont)
 	}
 
