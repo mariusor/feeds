@@ -25,6 +25,7 @@ func logMw(next http.Handler) http.Handler {
 		next.ServeHTTP(w, r)
 	})
 }
+
 func authMw(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		next.ServeHTTP(w, r)
@@ -32,14 +33,12 @@ func authMw(next http.Handler) http.Handler {
 }
 
 func main() {
-	listenDomain := "myk.localdomain"
+	listenDomain := "127.0.0.1"
 	goth.UseProviders(
 		//twitter.New(os.Getenv("TWITTER_KEY"), os.Getenv("TWITTER_SECRET"), "http://"+listenDomain+":3000/auth/twitter/callback"),
 		// If you'd like to use authenticate instead of authorize in Twitter provider, use this instead.
 		//twitter.NewAuthenticate(os.Getenv("TWITTER_KEY"), os.Getenv("TWITTER_SECRET"), "http://"+listenDomain+":3000/auth/twitter/callback"),
-
 		//facebook.New(os.Getenv("FACEBOOK_KEY"), os.Getenv("FACEBOOK_SECRET"), "http://"+listenDomain+":3000/auth/facebook/callback"),
-		//gplus.New(os.Getenv("GPLUS_KEY"), os.Getenv("GPLUS_SECRET"), "http://localhost:3000/auth/gplus/callback"),
 		github.New(os.Getenv("GITHUB_KEY"), os.Getenv("GITHUB_SECRET"), "http://"+listenDomain+":3000/auth/github/callback"),
 		//gitlab.New(os.Getenv("GITLAB_KEY"), os.Getenv("GITLAB_SECRET"), "http://"+listenDomain+":3000/auth/gitlab/callback"),
 	)
@@ -49,7 +48,6 @@ func main() {
 	//m["twitter"] = "Twitter"
 	m["github"] = "Github"
 	//m["gitlab"] = "Gitlab"
-	//m["gplus"] = "Google Plus"
 
 	var keys []string
 	for k := range m {
@@ -103,10 +101,10 @@ func main() {
 	r.HandleFunc("/", func(res http.ResponseWriter, req *http.Request) {
 		var t *template.Template
 		if gothUser, err := gothic.CompleteUserAuth(res, req); err == nil {
-			t, _ = template.New("user.html").ParseFiles("src/web/templates/user.html")
+			t, _ = template.New("user.html").ParseFiles("web/templates/user.html")
 			t.Execute(res, gothUser)
 		} else {
-			t, _ = template.New("index.html").ParseFiles("src/web/templates/index.html")
+			t, _ = template.New("index.html").ParseFiles("web/templates/index.html")
 			t.Execute(res, providerIndex)
 		}
 	})
