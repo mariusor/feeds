@@ -21,7 +21,7 @@ func DB(basePath string) (*sql.DB, error) {
 	if _, err := os.Stat(dbPath); os.IsNotExist(err) {
 		bootstrap = true
 	}
-	db, err := sql.Open("sqlite3", dbPath)
+	db, err := sql.Open("sqlite", dbPath)
 	if err != nil {
 		return db, err
 	}
@@ -75,13 +75,6 @@ func createTables(c *sql.DB) error {
 	if _, err := c.Exec(contents); err != nil {
 		return err
 	}
-
-	/*
-		insert := "INSERT INTO feeds (url, frequency, last_loaded) VALUES(?, ?, ?)"
-		if _, err := c.Exec(insert, "https://www.parahumans.net/feed/", 120000000000, nil); err != nil {
-			return err
-		}
-	*/
 
 	users := "CREATE TABLE users ( id INTEGER PRIMARY KEY ASC );"
 	if _, err := c.Exec(users); err != nil {
