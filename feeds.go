@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/SlyMarbo/rss"
-	_ "github.com/mattn/go-sqlite3"
+	_ "modernc.org/sqlite"
 )
 
 type Feed struct {

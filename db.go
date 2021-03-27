@@ -10,7 +10,7 @@ import (
 	"path"
 	"path/filepath"
 
-	_ "github.com/mattn/go-sqlite3"
+	_ "modernc.org/sqlite"
 )
 
 const DBFilePath = "feeds.db"

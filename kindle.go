@@ -8,7 +8,7 @@ import (
 	"net/smtp"
 
 	"github.com/jordan-wright/email"
-	_ "github.com/mattn/go-sqlite3"
+	_ "modernc.org/sqlite"
 )
 
 const htmlDir = "articles"
