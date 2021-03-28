@@ -2,12 +2,10 @@ package main
 
 import (
 	"html/template"
+	"log"
 	"net/http"
 	"os"
-
 	"sort"
-
-	"log"
 
 	"github.com/gorilla/mux"
 	"github.com/gorilla/securecookie"
