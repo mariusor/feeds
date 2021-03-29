@@ -1,11 +1,16 @@
 package main
 
 import (
+	"flag"
+	"fmt"
+	"github.com/mariusor/feeds"
 	"html/template"
 	"log"
 	"net/http"
 	"os"
+	"path"
 	"sort"
+	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/gorilla/securecookie"
@@ -14,6 +19,8 @@ import (
 	"github.com/markbates/goth/gothic"
 	"github.com/markbates/goth/providers/github"
 )
+
+var errorTpl = template.Must(template.New("error.html").ParseFiles("web/templates/error.html"))
 
 func logMw(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -31,6 +38,26 @@ func authMw(next http.Handler) http.Handler {
 }
 
 func main() {
+	var basePath string
+	flag.StringVar(&basePath, "path", "/tmp", "Base path")
+	flag.Parse()
+
+	basePath = path.Clean(basePath)
+	if _, err := os.Stat(basePath); os.IsNotExist(err) {
+		os.Mkdir(basePath, 0755)
+	}
+
+	htmlBasePath := path.Join(basePath, feeds.HtmlDir)
+	if _, err := os.Stat(htmlBasePath); os.IsNotExist(err) {
+		os.Mkdir(htmlBasePath, 0755)
+	}
+
+	c, err := feeds.DB(basePath)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer c.Close()
+
 	listenDomain := "127.0.0.1"
 	goth.UseProviders(
 		//twitter.New(os.Getenv("TWITTER_KEY"), os.Getenv("TWITTER_SECRET"), "http://"+listenDomain+":3000/auth/twitter/callback"),
@@ -63,54 +90,99 @@ func main() {
 	gothic.Store = store
 
 	sort.Strings(keys)
-	providerIndex := &ProviderIndex{Providers: keys, ProvidersMap: m}
 
 	r := mux.NewRouter()
 	r.Use(logMw)
 	//r.Use(authMw)
+	feeds, err := feeds.GetFeeds(c)
+	if err != nil {
+		log.Printf("unable to load feeds: %s", err)
+	}
+	providerIndex := &Index{
+		Providers: m,
+		Feeds:     feeds,
+	}
 
-	r.HandleFunc("/auth/{provider}/callback", func(res http.ResponseWriter, req *http.Request) {
-		user, err := gothic.CompleteUserAuth(res, req)
+	r.HandleFunc("/auth/{provider}/callback", func(w http.ResponseWriter, req *http.Request) {
+		user, err := gothic.CompleteUserAuth(w, req)
 		if err != nil {
-			t, _ := template.New("error.html").ParseFiles("src/web/templates/error.html")
-			t.Execute(res, err)
+			errorTpl.Execute(w, err)
 			return
 		}
-		t, _ := template.New("user.html").ParseFiles("src/web/templates/user.html")
-		t.Execute(res, user)
+		t, _ := template.New("user.html").ParseFiles("web/templates/user.html")
+		t.Execute(w, user)
 	})
 
-	r.HandleFunc("/logout/{provider}", func(res http.ResponseWriter, req *http.Request) {
-		gothic.Logout(res, req)
-		res.Header().Set("Location", "/")
-		res.WriteHeader(http.StatusTemporaryRedirect)
+	r.HandleFunc("/logout/{provider}", func(w http.ResponseWriter, req *http.Request) {
+		gothic.Logout(w, req)
+		w.Header().Set("Location", "/")
+		w.WriteHeader(http.StatusTemporaryRedirect)
 	})
 
-	r.HandleFunc("/auth/{provider}", func(res http.ResponseWriter, req *http.Request) {
+	r.HandleFunc("/auth/{provider}", func(w http.ResponseWriter, req *http.Request) {
 		// try to get the user without re-authenticating
-		if gothUser, err := gothic.CompleteUserAuth(res, req); err == nil {
-			t, _ := template.New("user.html").ParseFiles("src/web/templates/user.html")
-			t.Execute(res, gothUser)
+		gothUser, err := gothic.CompleteUserAuth(w, req)
+		if err != nil {
+			errorTpl.Execute(w, err)
 			return
 		}
-		gothic.BeginAuthHandler(res, req)
+		t, _ := template.New("user.html").ParseFiles("web/templates/user.html")
+		t.Execute(w, gothUser)
+		gothic.BeginAuthHandler(w, req)
 	})
 
-	r.HandleFunc("/", func(res http.ResponseWriter, req *http.Request) {
-		var t *template.Template
-		if gothUser, err := gothic.CompleteUserAuth(res, req); err == nil {
-			t, _ = template.New("user.html").ParseFiles("web/templates/user.html")
-			t.Execute(res, gothUser)
-		} else {
-			t, _ = template.New("index.html").ParseFiles("web/templates/index.html")
-			t.Execute(res, providerIndex)
+	r.HandleFunc("/", func(w http.ResponseWriter, req *http.Request) {
+		t, err := template.New("index.html").Funcs(template.FuncMap{
+			"fmtDuration": fmtDuration,
+		}).ParseFiles("web/templates/index.html")
+		if err != nil {
+			errorTpl.Execute(w, err)
+			return
 		}
+		t.Execute(w, providerIndex)
 	})
-
 	log.Fatal(http.ListenAndServe(listenDomain+":3000", r))
 }
 
-type ProviderIndex struct {
-	Providers    []string
-	ProvidersMap map[string]string
+type Index struct {
+	Providers ProviderList
+	Feeds     []feeds.Feed
+}
+type ProviderList map[string]string
+
+func fmtDuration(d time.Duration) template.HTML {
+	var (
+		unit = "week"
+		times float32 = -1.0
+	)
+	timesFn := func (d1, d2 time.Duration) float32 {
+		return float32(float64(d1) / float64(d2))
+	}
+	if d <= 0 {
+		return "never"
+	}
+	day := 24 * time.Hour
+	week := 7 * day
+	times = timesFn(week, d)
+	if times > 6 {
+		unit = "day"
+		times = timesFn(day, d)
+		if times > 20 {
+			unit = "hour"
+			times = timesFn(time.Hour, d)
+			if times > 29 {
+				unit = "minute"
+				times = timesFn(time.Minute, d)
+			}
+		}
+	}
+	if times == 1 && unit != "minute" {
+		if unit == "day" {
+			unit = "daily"
+		} else {
+			unit = unit + "ly"
+		}
+		return template.HTML(unit)
+	}
+	return template.HTML(fmt.Sprintf("%.1f times per %s", times, unit))
 }

@@ -6,8 +6,16 @@
 </head>
 <body>
 <h1>Login</h1>
-{{range $key,$value:=.Providers}}
-<p><a href="/auth/{{$value}}">Log in with {{index $.ProvidersMap $value}}</a></p>
+{{range $key,$value:=.Providers }}
+<p><a href="/auth/{{$key}}">Log in with {{$value}}</a></p>
 {{end}}
+<div>
+Tracked feeds:
+<ol>
+{{ range $key, $feed:=.Feeds }}
+<li> <a href="/feeds/{{$key}}">{{- $feed.Title -}}</a> Updated {{ fmtDuration $feed.Frequency -}} </li>
+{{ end }}
+</ol>
+</div>
 </body>
 </html>
