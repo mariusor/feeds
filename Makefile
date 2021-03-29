@@ -5,6 +5,9 @@ SHELL := bash
 MAKEFLAGS += --warn-undefined-variables
 MAKEFLAGS += --no-builtin-rules
 
+M4 = /usr/bin/m4
+M4_FLAGS = -P
+
 export GOOS=linux
 export GOARCH=amd64
 export VERSION=(unknown)
@@ -14,8 +17,7 @@ LDFLAGS ?= -X main.version=$(VERSION)
 BUILDFLAGS ?= -a -ldflags '$(LDFLAGS)'
 APPSOURCES := $(wildcard *.go) go.mod
 PROJECT_NAME := $(shell basename $(PWD))
-export CGO_ENABLED=1
-export CGO_FLAGS='-Wno-return-local-addr'
+DATA_PATH ?= /srv/data/feeds
 
 ifneq ($(ENV), dev)
 	LDFLAGS += -s -w -extldflags "-static"
@@ -57,27 +59,31 @@ bin/web: cli/web/main.go $(APPSOURCES)
 
 clean:
 	-$(RM) bin/*
+	-$(RM) systemd/*.service
 
-units: all
+units: $(patsubst %.service.in, %.service, $(wildcard systemd/*.service.in))
+
+systemd/%.service: systemd/%.service.in
+	$(M4) $(M4_FLAGS) -DBIN_NAME=`basename $< | cut -d'.' -f1` -DDATA_PATH=$(DATA_PATH) $< >$@
 
 mod_tidy:
 	$(GO) mod tidy
 
 install: units
-	install bin/content $(DESTDIR)$(INSTALL_PREFIX)/bin/fcontent
-	install bin/mobi $(DESTDIR)$(INSTALL_PREFIX)/bin/fmobi
-	install bin/feeds $(DESTDIR)$(INSTALL_PREFIX)/bin/ffeeds
-	install bin/dispatch $(DESTDIR)$(INSTALL_PREFIX)/bin/fdispatch
+	install bin/content $(DESTDIR)$(INSTALL_PREFIX)/bin/content
+	install bin/mobi $(DESTDIR)$(INSTALL_PREFIX)/bin/mobi
+	install bin/feeds $(DESTDIR)$(INSTALL_PREFIX)/bin/feeds
+	install bin/dispatch $(DESTDIR)$(INSTALL_PREFIX)/bin/dispatch
 	install -m 644 *.service $(DESTDIR)$(INSTALL_PREFIX)/usr/lib/systemd/
 	install -m 644 *.timer $(DESTDIR)$(INSTALL_PREFIX)/usr/lib/systemd/
 
 uninstall:
-	$(RM) $(DESTDIR)$(INSTALL_PREFIX)/bin/fcontent
-	$(RM) $(DESTDIR)$(INSTALL_PREFIX)/bin/fmobi
-	$(RM) $(DESTDIR)$(INSTALL_PREFIX)/bin/ffeeds
-	$(RM) $(DESTDIR)$(INSTALL_PREFIX)/bin/fdispatch
-	$(RM) $(DESTDIR)$(INSTALL_PREFIX)/usr/lib/systemd/fcontent.service
-	$(RM) $(DESTDIR)$(INSTALL_PREFIX)/usr/lib/systemd/fmobi.service
-	$(RM) $(DESTDIR)$(INSTALL_PREFIX)/usr/lib/systemd/ffeeds.service
-	$(RM) $(DESTDIR)$(INSTALL_PREFIX)/usr/lib/systemd/ffeeds.service
-	$(RM) $(DESTDIR)$(INSTALL_PREFIX)/usr/lib/systemd/fdispatch.service
+	$(RM) $(DESTDIR)$(INSTALL_PREFIX)/bin/content
+	$(RM) $(DESTDIR)$(INSTALL_PREFIX)/bin/mobi
+	$(RM) $(DESTDIR)$(INSTALL_PREFIX)/bin/feeds
+	$(RM) $(DESTDIR)$(INSTALL_PREFIX)/bin/dispatch
+	$(RM) $(DESTDIR)$(INSTALL_PREFIX)/usr/lib/systemd/content.service
+	$(RM) $(DESTDIR)$(INSTALL_PREFIX)/usr/lib/systemd/mobi.service
+	$(RM) $(DESTDIR)$(INSTALL_PREFIX)/usr/lib/systemd/feeds.service
+	$(RM) $(DESTDIR)$(INSTALL_PREFIX)/usr/lib/systemd/feeds.service
+	$(RM) $(DESTDIR)$(INSTALL_PREFIX)/usr/lib/systemd/dispatch.service
