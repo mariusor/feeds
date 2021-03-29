@@ -31,27 +31,27 @@ endif
 BUILD := $(GO) build $(BUILDFLAGS)
 TEST := $(GO) test $(BUILDFLAGS)
 
-.PHONY: all content dispatch feeds mobi web clean
+.PHONY: all content dispatch feeds mobi web clean mod_tidy
 
 all: content dispatch feeds mobi web
 
-content: bin/content
+content: mod_tidy bin/content
 bin/content: cli/content/main.go $(APPSOURCES)
 	$(BUILD) -tags $(ENV) -o $@ ./cli/content/main.go
 
-mobi: bin/mobi
+mobi: mod_tidy bin/mobi
 bin/mobi: cli/mobi/main.go $(APPSOURCES)
 	$(BUILD) -tags $(ENV) -o $@ ./cli/mobi/main.go
 
-feeds: bin/feeds
+feeds: mod_tidy bin/feeds
 bin/feeds: cli/feeds/main.go $(APPSOURCES)
 	$(BUILD) -tags $(ENV) -o $@ ./cli/feeds/main.go
 
-dispatch: bin/dispatch
+dispatch: mod_tidy bin/dispatch
 bin/dispatch: cli/dispatch/main.go $(APPSOURCES)
 	$(BUILD) -tags $(ENV) -o $@ ./cli/dispatch/main.go
 
-web: bin/web
+web: mod_tidy bin/web
 bin/web: cli/web/main.go $(APPSOURCES)
 	$(BUILD) -tags $(ENV) -o $@ ./cli/web/main.go
 
@@ -60,6 +60,8 @@ clean:
 
 units: all
 
+mod_tidy:
+	$(GO) mod tidy
 
 install: units
 	install bin/content $(DESTDIR)$(INSTALL_PREFIX)/bin/fcontent
