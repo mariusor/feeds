@@ -15,6 +15,10 @@ import (
 
 const DBFilePath = "feeds.db"
 
+const (
+	FlagsNone = iota
+	FlagsDisabled = 1 << iota
+)
 func DB(basePath string) (*sql.DB, error) {
 	dbPath := path.Join(basePath, DBFilePath)
 	bootstrap := false
@@ -35,14 +39,15 @@ func DB(basePath string) (*sql.DB, error) {
 }
 
 func createTables(c *sql.DB) error {
-	feeds := "CREATE TABLE feeds (" +
-		"id INTEGER PRIMARY KEY ASC, " +
-		"url TEXT, " +
-		"title TEXT, " +
-		"author TEXT, " +
-		"frequency REAL, " +
-		"last_loaded DATETIME" +
-		")"
+	feeds := `CREATE TABLE feeds (
+		id INTEGER PRIMARY KEY ASC,
+		url TEXT,
+		title TEXT,
+		author TEXT,
+		frequency REAL,
+		last_loaded DATETIME,
+		flags INTEGER DEFAULT 0
+	)`
 	if _, err := c.Exec(feeds); err != nil {
 		return err
 	}
@@ -86,23 +91,25 @@ func createTables(c *sql.DB) error {
 		return err
 	}
 
-	outputs := "CREATE TABLE outputs (" +
-		"id INTEGER PRIMARY KEY ASC, " +
-		"user_id INTEGER," +
-		"type TEXT, " +
-		"credentials TEXT, " +
-		"FOREIGN KEY(user_id) REFERENCES users(id)" +
-		");"
+	outputs := `CREATE TABLE outputs (
+		id INTEGER PRIMARY KEY ASC,
+		user_id INTEGER,
+		type TEXT,
+		credentials TEXT,
+		flags INT DEFAULT 0,
+		FOREIGN KEY(user_id) REFERENCES users(id)
+	);`
 	if _, err := c.Exec(outputs); err != nil {
 		return err
 	}
 
-	targets := "create table targets (" +
-		"id INTEGER PRIMARY KEY ASC, " +
-		"output_id INTEGER, " +
-		"data TEXT, " +
-		"FOREIGN KEY(output_id) REFERENCES outputs(id)" +
-		");"
+	targets := `create table targets (
+		id INTEGER PRIMARY KEY ASC,
+		output_id INTEGER,
+		data TEXT,
+		flags INT DEFAULT 0,
+		FOREIGN KEY(output_id) REFERENCES outputs(id)
+	);`
 	if _, err := c.Exec(targets); err != nil {
 		return err
 	}
@@ -150,8 +157,8 @@ func LoadItem(it Item, c *sql.DB, htmlPath string) error {
 }
 
 func GetFeeds(c *sql.DB) ([]Feed, error) {
-	sel := `SELECT id, title, author, frequency, last_loaded, url FROM feeds`
-	s, err := c.Query(sel)
+	sel := `SELECT id, title, author, frequency, last_loaded, url FROM feeds where flags != ?`
+	s, err := c.Query(sel, FlagsDisabled)
 	if err != nil {
 		return nil, err
 	}
