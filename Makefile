@@ -19,6 +19,9 @@ APPSOURCES := $(wildcard *.go) go.mod
 PROJECT_NAME := $(shell basename $(PWD))
 DATA_PATH ?= /srv/data/feeds
 
+DESTDIR ?= /
+INSTALL_PREFIX ?= usr/local
+
 ifneq ($(ENV), dev)
 	LDFLAGS += -s -w -extldflags "-static"
 endif
