@@ -149,8 +149,8 @@ func LoadItem(it Item, c *sql.DB, htmlPath string) error {
 }
 
 func GetFeeds(c *sql.DB) ([]Feed, error) {
-	sql := "SELECT id, url, frequency, last_loaded, title, author FROM feeds"
-	s, err := c.Query(sql)
+	sel := `SELECT id, title, author, frequency, last_loaded, url FROM feeds`
+	s, err := c.Query(sel)
 	if err != nil {
 		return nil, err
 	}
@@ -158,12 +158,26 @@ func GetFeeds(c *sql.DB) ([]Feed, error) {
 
 	all := make([]Feed, 0)
 	for s.Next() {
-		var link string
-		f := Feed{}
-		s.Scan(&f.ID, &link, &f.Frequency, &f.Updated, &f.Title, &f.Author)
-		if f.URL, err = url.Parse(link); err == nil {
-			all = append(all, f)
+		var (
+			id            int
+			freq          sql.NullInt32
+			title, auth   string
+			link, updated sql.NullString
+		)
+		s.Scan(&id, &title, &auth, &freq, &updated, &link)
+		f := Feed{
+			ID:        id,
+			Title:     title,
+			Author:    auth,
+			Frequency: time.Duration(freq.Int32) * time.Second,
 		}
+		if updated.Valid {
+			f.Updated, _ = time.Parse(time.RFC3339Nano, updated.String)
+		}
+		if link.Valid {
+			f.URL, _ = url.Parse(link.String)
+		}
+		all = append(all, f)
 	}
 	return all, nil
 }
@@ -214,10 +228,10 @@ func GetNonDispatchedItemContents(c *sql.DB) ([]Content, error) {
 }
 
 func GetContentsForMobi(c *sql.DB) ([]Content, error) {
-	sql := "SELECT items_contents.id, items.id, feeds.title, items.title, items.author, html_path, mobi_path, epub_path " +
-		"FROM items_contents " +
-		"INNER JOIN items ON items.id = items_contents.item_id " +
-		"INNER JOIN feeds ON feeds.id = items.feed_id WHERE mobi_path IS NULL OR epub_path IS NULL"
+	sql := `SELECT items_contents.id, items.id, feeds.title, items.title, items.author, html_path, mobi_path, epub_path 
+	FROM items_contents 
+INNER JOIN items ON items.id = items_contents.item_id 
+INNER JOIN feeds ON feeds.id = items.feed_id WHERE mobi_path IS NULL OR epub_path IS NULL;`
 
 	s, err := c.Query(sql)
 	if err != nil {
