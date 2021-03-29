@@ -27,15 +27,18 @@ func main() {
 
 	c, err := feeds.DB(basePath)
 	if err != nil {
-		log.Fatal("Error: %s", err)
+		log.Fatalf("Error: %s", err)
 	}
 	defer c.Close()
 
 	all, err := feeds.GetNonDispatchedItemContents(c)
+	if err != nil {
+		log.Printf("Error: %s", err)
+	}
 	for _, cont := range all {
 		st, err := feeds.DispatchToKindle(cont.Item.Title, cont.MobiPath, c)
 		if err != nil {
-			log.Print("Error: %s", err)
+			log.Printf("Error: %s", err)
 			continue
 		}
 		updateFeed := "UPDATE items_contents SET dispatched = ? WHERE id = ?"
