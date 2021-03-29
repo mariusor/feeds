@@ -53,7 +53,7 @@ func main() {
 			log.Fatal(err)
 			continue
 		}
-		updateFeed := "UPDATE feeds SET lastLoaded = ?"
+		updateFeed := "UPDATE feeds SET last_loaded = ?"
 		c.Exec(updateFeed, time.Now().UTC())
 	}
 }
