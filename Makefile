@@ -21,6 +21,7 @@ DATA_PATH ?= /srv/data/feeds
 
 DESTDIR ?= /
 INSTALL_PREFIX ?= usr/local
+UNITDIR = lib/systemd/system
 
 ifneq ($(ENV), dev)
 	LDFLAGS += -s -w -extldflags "-static"
@@ -73,20 +74,21 @@ mod_tidy:
 	$(GO) mod tidy
 
 install: units
+	test -d $(DESTDIR)$(INSTALL_PREFIX)/$(UNITDIR)/ || mkdir -p $(DESTDIR)$(INSTALL_PREFIX)/$(UNITDIR)/
 	install bin/content $(DESTDIR)$(INSTALL_PREFIX)/bin/content
 	install bin/mobi $(DESTDIR)$(INSTALL_PREFIX)/bin/mobi
 	install bin/feeds $(DESTDIR)$(INSTALL_PREFIX)/bin/feeds
 	install bin/dispatch $(DESTDIR)$(INSTALL_PREFIX)/bin/dispatch
-	install -m 644 *.service $(DESTDIR)$(INSTALL_PREFIX)/usr/lib/systemd/
-	install -m 644 *.timer $(DESTDIR)$(INSTALL_PREFIX)/usr/lib/systemd/
+	install -m 644 systemd/*.service $(DESTDIR)$(INSTALL_PREFIX)/$(UNITDIR)/
+	install -m 644 systemd/*.timer $(DESTDIR)$(INSTALL_PREFIX)/$(UNITDIR)/
 
 uninstall:
 	$(RM) $(DESTDIR)$(INSTALL_PREFIX)/bin/content
 	$(RM) $(DESTDIR)$(INSTALL_PREFIX)/bin/mobi
 	$(RM) $(DESTDIR)$(INSTALL_PREFIX)/bin/feeds
 	$(RM) $(DESTDIR)$(INSTALL_PREFIX)/bin/dispatch
-	$(RM) $(DESTDIR)$(INSTALL_PREFIX)/usr/lib/systemd/content.service
-	$(RM) $(DESTDIR)$(INSTALL_PREFIX)/usr/lib/systemd/mobi.service
-	$(RM) $(DESTDIR)$(INSTALL_PREFIX)/usr/lib/systemd/feeds.service
-	$(RM) $(DESTDIR)$(INSTALL_PREFIX)/usr/lib/systemd/feeds.service
-	$(RM) $(DESTDIR)$(INSTALL_PREFIX)/usr/lib/systemd/dispatch.service
+	$(RM) $(DESTDIR)$(INSTALL_PREFIX)/$(UNITDIR)/content.service
+	$(RM) $(DESTDIR)$(INSTALL_PREFIX)/$(UNITDIR)/mobi.service
+	$(RM) $(DESTDIR)$(INSTALL_PREFIX)/$(UNITDIR)/feeds.service
+	$(RM) $(DESTDIR)$(INSTALL_PREFIX)/$(UNITDIR)/feeds.service
+	$(RM) $(DESTDIR)$(INSTALL_PREFIX)/$(UNITDIR)/dispatch.service
