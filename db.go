@@ -52,41 +52,44 @@ func createTables(c *sql.DB) error {
 		return err
 	}
 
-	items := "CREATE TABLE items (" +
-		"id INTEGER PRIMARY KEY ASC, " +
-		"url TEXT, " +
-		"feed_id INTEGER, " +
-		"guid TEXT, " +
-		"title TEXT, " +
-		"author TEXT, " +
-		"published_date DATETIME, " +
-		"last_loaded DATETIME, " +
-		"last_status INTEGER, " +
-		"FOREIGN KEY(feed_id) REFERENCES feeds(id)" +
-		")"
+	items := `CREATE TABLE items (
+		id INTEGER PRIMARY KEY ASC,
+		url TEXT,
+		feed_id INTEGER,
+		guid TEXT,
+		title TEXT,
+		author TEXT,
+		published_date DATETIME,
+		last_loaded DATETIME,
+		last_status INTEGER,
+		FOREIGN KEY(feed_id) REFERENCES feeds(id)
+	)`
 	if _, err := c.Exec(items); err != nil {
 		return err
 	}
 
-	contents := "CREATE TABLE items_contents (" +
-		"id INTEGER PRIMARY KEY ASC, " +
-		"url TEXT, " +
-		"item_id INTEGER, " +
-		"html_path TEXT, " +
-		"mobi_path TEXT, " +
-		"epub_path TEXT, " +
-		"dispatched INTEGER DEFAULT 0, " +
-		"FOREIGN KEY(item_id) REFERENCES items(id) " +
-		")"
+	contents := `CREATE TABLE items_contents (
+		id INTEGER PRIMARY KEY ASC,
+		url TEXT,
+		item_id INTEGER,
+		html_path TEXT,
+		mobi_path TEXT,
+		epub_path TEXT,
+		dispatched INTEGER DEFAULT 0,
+		FOREIGN KEY(item_id) REFERENCES items(id)
+	)`
 	if _, err := c.Exec(contents); err != nil {
 		return err
 	}
 
-	users := "CREATE TABLE users ( id INTEGER PRIMARY KEY ASC );"
+	users := `CREATE TABLE users (
+		id INTEGER PRIMARY KEY ASC,
+		raw TEXT
+	);`
 	if _, err := c.Exec(users); err != nil {
 		return err
 	}
-	insertUsers := "INSERT INTO users (id) VALUES(?)"
+	insertUsers := `INSERT INTO users (id) VALUES(?);`
 	if _, err := c.Exec(insertUsers, 1); err != nil {
 		return err
 	}
@@ -117,7 +120,7 @@ func createTables(c *sql.DB) error {
 }
 
 func LoadItem(it Item, c *sql.DB, htmlPath string) error {
-	contentIns := "INSERT INTO items_contents (url, item_id, html_path) VALUES(?, ?, ?)"
+	contentIns := `INSERT INTO items_contents (url, item_id, html_path) VALUES(?, ?, ?)`
 	s, err := c.Prepare(contentIns)
 	if err != nil {
 		return err
