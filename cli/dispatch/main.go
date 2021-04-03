@@ -10,8 +10,12 @@ import (
 )
 
 func main() {
-	var basePath string
+	var (
+		basePath string
+		verbose bool
+	)
 	flag.StringVar(&basePath, "path", "/tmp", "Base path")
+	flag.BoolVar(&verbose, "verbose", false, "Output debugging messages")
 	flag.Parse()
 
 	basePath = path.Clean(basePath)

@@ -9,15 +9,24 @@ import (
 	"strings"
 
 	"github.com/mariusor/feeds"
+	"github.com/mariusor/go-readability"
 	"golang.org/x/sync/errgroup"
 )
 
 const chunkSize = 10
 
 func main() {
-	var basePath string
+	var (
+		basePath string
+		verbose bool
+	)
 	flag.StringVar(&basePath, "path", "/tmp", "Base path")
+	flag.BoolVar(&verbose, "verbose", false, "Output debugging messages")
 	flag.Parse()
+
+	if verbose {
+		readability.Logger = log.New(os.Stdout, "[readability] ", log.LstdFlags)
+	}
 
 	basePath = path.Clean(basePath)
 	if _, err := os.Stat(basePath); os.IsNotExist(err) {
