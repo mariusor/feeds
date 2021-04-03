@@ -3,7 +3,7 @@ Description=Run service every couple of hours
 
 [Timer]
 RandomizedDelaySec=20
-OnCalendar=*-*-* *:*/5:00
+OnCalendar=*-*-* *:00:00
 
 [Install]
 WantedBy=timers.target
