@@ -1,7 +1,7 @@
 package feeds
 
 import (
-	epub "github.com/bmaupin/go-epub"
+	"github.com/bmaupin/go-epub"
 )
 
 const EPubDir = "output/epub"
