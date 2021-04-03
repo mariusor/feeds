@@ -16,9 +16,10 @@ import (
 const DBFilePath = "feeds.db"
 
 const (
-	FlagsNone = iota
+	FlagsNone     = iota
 	FlagsDisabled = 1 << iota
 )
+
 func DB(basePath string) (*sql.DB, error) {
 	dbPath := path.Join(basePath, DBFilePath)
 	bootstrap := false
@@ -194,7 +195,11 @@ func GetFeeds(c *sql.DB) ([]Feed, error) {
 }
 
 func GetNonFetchedItems(c *sql.DB) ([]Item, error) {
-	sql := "SELECT items.id, feeds.title as feed_title, items.title as title, items.url FROM items INNER JOIN feeds ON feeds.id = items.feed_id LEFT JOIN items_contents ON items_contents.item_id = items.id WHERE items_contents.id IS NULL group by items.id"
+	sql := `SELECT items.id, feeds.title as feed_title, items.title as title, items.url 
+FROM items 
+    INNER JOIN feeds ON feeds.id = items.feed_id 
+    LEFT JOIN items_contents ON items_contents.item_id = items.id 
+WHERE items_contents.id IS NULL group by items.id`
 	s, err := c.Query(sql)
 	if err != nil {
 		return nil, err
