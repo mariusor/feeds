@@ -1,10 +1,8 @@
 package feeds
 
 import (
-	"bytes"
 	"fmt"
 	"net/url"
-	"os"
 	"strings"
 	"time"
 )
@@ -33,18 +31,4 @@ type Content struct {
 
 func (i Item) Path(ext string) string {
 	return fmt.Sprintf("%05d %s.%s", i.ID, strings.TrimSpace(i.Title), ext)
-}
-
-func (c Content) HTML() ([]byte, error) {
-	f, err := os.Open(c.HTMLPath)
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-
-	buf := new(bytes.Buffer)
-	if _, err := buf.ReadFrom(f); err != nil {
-		return nil, err
-	}
-	return buf.Bytes(), nil
 }

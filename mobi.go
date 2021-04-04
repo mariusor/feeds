@@ -6,6 +6,7 @@ import (
 
 const HtmlDir = "articles"
 const MobiDir = "output/mobi"
+const OutputDir = "output"
 
 func ToMobi(content []byte, title string, author string, outPath string) error {
 	m, err := mobi.NewWriter(outPath)

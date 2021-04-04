@@ -243,7 +243,7 @@ func GetNonDispatchedItemContents(c *sql.DB) ([]Content, error) {
 	return all, nil
 }
 
-func GetContentsForMobi(c *sql.DB) ([]Content, error) {
+func GetContentsForEbook(c *sql.DB) ([]Content, error) {
 	sql := `SELECT items_contents.id, items.id, feeds.title, items.title, items.author, html_path, mobi_path, epub_path 
 	FROM items_contents 
 INNER JOIN items ON items.id = items_contents.item_id 

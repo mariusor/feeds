@@ -37,17 +37,17 @@ endif
 BUILD := $(GO) build $(BUILDFLAGS)
 TEST := $(GO) test $(BUILDFLAGS)
 
-.PHONY: all content dispatch feeds mobi web clean mod_tidy
+.PHONY: all content dispatch feeds ebook web clean mod_tidy
 
-all: content dispatch feeds mobi web
+all: content dispatch feeds ebook web
 
 content: mod_tidy bin/content
 bin/content: cli/content/main.go $(APPSOURCES)
 	$(BUILD) -tags $(ENV) -o $@ ./cli/content/main.go
 
-mobi: mod_tidy bin/mobi
-bin/mobi: cli/mobi/main.go $(APPSOURCES)
-	$(BUILD) -tags $(ENV) -o $@ ./cli/mobi/main.go
+ebook: mod_tidy bin/ebook
+bin/ebook: cli/ebook/main.go $(APPSOURCES)
+	$(BUILD) -tags $(ENV) -o $@ ./cli/ebook/main.go
 
 feeds: mod_tidy bin/feeds
 bin/feeds: cli/feeds/main.go $(APPSOURCES)
@@ -76,7 +76,7 @@ mod_tidy:
 install: units
 	test -d $(DESTDIR)$(INSTALL_PREFIX)/$(UNITDIR)/ || mkdir -p $(DESTDIR)$(INSTALL_PREFIX)/$(UNITDIR)/
 	install bin/content $(DESTDIR)$(INSTALL_PREFIX)/bin/content
-	install bin/mobi $(DESTDIR)$(INSTALL_PREFIX)/bin/mobi
+	install bin/ebook $(DESTDIR)$(INSTALL_PREFIX)/bin/ebook
 	install bin/feeds $(DESTDIR)$(INSTALL_PREFIX)/bin/feeds
 	install bin/dispatch $(DESTDIR)$(INSTALL_PREFIX)/bin/dispatch
 	install -m 644 systemd/*.service $(DESTDIR)$(INSTALL_PREFIX)/$(UNITDIR)/
@@ -84,11 +84,14 @@ install: units
 
 uninstall:
 	$(RM) $(DESTDIR)$(INSTALL_PREFIX)/bin/content
-	$(RM) $(DESTDIR)$(INSTALL_PREFIX)/bin/mobi
-	$(RM) $(DESTDIR)$(INSTALL_PREFIX)/bin/feeds
 	$(RM) $(DESTDIR)$(INSTALL_PREFIX)/bin/dispatch
+	$(RM) $(DESTDIR)$(INSTALL_PREFIX)/bin/ebook
+	$(RM) $(DESTDIR)$(INSTALL_PREFIX)/bin/feeds
 	$(RM) $(DESTDIR)$(INSTALL_PREFIX)/$(UNITDIR)/content.service
-	$(RM) $(DESTDIR)$(INSTALL_PREFIX)/$(UNITDIR)/mobi.service
-	$(RM) $(DESTDIR)$(INSTALL_PREFIX)/$(UNITDIR)/feeds.service
-	$(RM) $(DESTDIR)$(INSTALL_PREFIX)/$(UNITDIR)/feeds.service
 	$(RM) $(DESTDIR)$(INSTALL_PREFIX)/$(UNITDIR)/dispatch.service
+	$(RM) $(DESTDIR)$(INSTALL_PREFIX)/$(UNITDIR)/ebook.service
+	$(RM) $(DESTDIR)$(INSTALL_PREFIX)/$(UNITDIR)/feeds.service
+	$(RM) $(DESTDIR)$(INSTALL_PREFIX)/$(UNITDIR)/content.timer
+	$(RM) $(DESTDIR)$(INSTALL_PREFIX)/$(UNITDIR)/dispatch.timer
+	$(RM) $(DESTDIR)$(INSTALL_PREFIX)/$(UNITDIR)/ebook.timer
+	$(RM) $(DESTDIR)$(INSTALL_PREFIX)/$(UNITDIR)/feeds.timer

@@ -1,5 +1,5 @@
 [Unit]
-Description = Service to convert articles to Kindle ebook files
+Description = Service to convert articles to ebook files
 
 [Service]
 Type = oneshot
