@@ -60,7 +60,7 @@ func main() {
 					last = time.Now().UTC().Sub(f.Updated)
 					log.Printf("Last checked %s ago", last.Round(time.Minute).String())
 				}
-				if last > f.Frequency {
+				if last <= f.Frequency {
 					log.Printf(" ...newer than %s, skipping.\n", f.Frequency.String())
 					return nil
 				}
