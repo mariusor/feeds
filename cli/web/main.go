@@ -32,30 +32,14 @@ func authMw(next http.Handler) http.Handler {
 	})
 }
 
-func main() {
-	var basePath string
-	flag.StringVar(&basePath, "path", "/tmp", "Base path")
-	flag.Parse()
-
-	basePath = path.Clean(basePath)
-	if _, err := os.Stat(basePath); os.IsNotExist(err) {
-		os.Mkdir(basePath, 0755)
-	}
-
-	htmlBasePath := path.Join(basePath, feeds.HtmlDir)
-	if _, err := os.Stat(htmlBasePath); os.IsNotExist(err) {
-		os.Mkdir(htmlBasePath, 0755)
-	}
-
-	c, err := feeds.DB(basePath)
+func genRoutes(dbDsn string) *http.ServeMux {
+	r := http.NewServeMux()
+	
+	c, err := feeds.DB(dbDsn)
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer c.Close()
-
-	listenDomain := "127.0.0.1"
-
-	r := http.NewServeMux()
 	allFeeds, err := feeds.GetFeeds(c)
 	if err != nil {
 		log.Printf("unable to load feeds: %s", err)
@@ -73,15 +57,47 @@ func main() {
 			Feed: f,
 			Items: items,
 		}
-		feedPath := "/" + sluggifyTitle(f.Title) + "/"
+		feedPath := "/" + sluggifyTitle(f.Title)
 		r.HandleFunc(feedPath, a.Handler)
 		for _, c := range items {
 			article := article{ Feed: f, Item: c }
-			articlePath := path.Join(feedPath, sluggifyTitle(c.Item.Title)) + "/"
-			r.HandleFunc(articlePath, article.Handler)
+			articlePath := path.Join(feedPath, sluggifyTitle(c.Item.Title))
+			r.HandleFunc(articlePath + ".mobi", article.Handler)
+			r.HandleFunc(articlePath + ".epub", article.Handler)
+			r.HandleFunc(articlePath + ".html", article.Handler)
 		}
 	}
 	r.HandleFunc("/", feedsListing.Handler)
+	return r
+}
+
+func main() {
+	var basePath string
+	flag.StringVar(&basePath, "path", "/tmp", "Base path")
+	flag.Parse()
+
+	basePath = path.Clean(basePath)
+	if _, err := os.Stat(basePath); os.IsNotExist(err) {
+		os.Mkdir(basePath, 0755)
+	}
+
+	r := genRoutes(basePath)
+
+	ticker := time.NewTicker(30 * time.Second)
+	quit := make(chan struct{})
+	go func() {
+		for {
+			select {
+			case <- ticker.C:
+				r = genRoutes(basePath)
+			case <- quit:
+				ticker.Stop()
+				return
+			}
+		}
+	}()
+
+	listenDomain := "127.0.0.1"
 	log.Fatal(http.ListenAndServe(listenDomain+":3000", r))
 }
 
@@ -127,7 +143,15 @@ type articleListing struct {
 }
 
 func (a article) Handler (w http.ResponseWriter, r *http.Request) {
-	http.ServeFile(w, r, a.Item.HTMLPath)
+	ext := path.Ext(r.URL.Path)
+	path := a.Item.HTMLPath
+	switch ext {
+	case ".mobi":
+		path = a.Item.MobiPath
+	case ".epub":
+		path = a.Item.EPubPath
+	}
+	http.ServeFile(w, r, path)
 }
 
 type article struct {

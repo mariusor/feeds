@@ -9,7 +9,7 @@
 Tracked feeds:
 <ol>
 {{ range $key, $feed:=.Feeds }}
-<li> <a href="/{{ $feed.Title | sluggify }}/">{{- $feed.Title -}}</a> by {{ $feed.Author }}<br/> Updates {{ fmtDuration $feed.Frequency -}} </li>
+<li> <a href="/{{ $feed.Title | sluggify }}">{{- $feed.Title -}}</a> by {{ $feed.Author }}<br/> Updates {{ fmtDuration $feed.Frequency -}} </li>
 {{ end }}
 </ol>
 </div>
