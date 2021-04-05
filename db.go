@@ -123,7 +123,7 @@ func createTables(c *sql.DB) error {
 }
 
 func LoadItem(it Item, c *sql.DB, htmlPath string) error {
-	contentIns := `INSERT INTO items_contents (url, item_id, html_path) VALUES(?, ?, ?)`
+	contentIns := `INSERT INTO items_contents (url, item_id, html_path, last_status) VALUES(?, ?, ?, ?)`
 	s, err := c.Prepare(contentIns)
 	if err != nil {
 		return err
@@ -136,26 +136,31 @@ func LoadItem(it Item, c *sql.DB, htmlPath string) error {
 	if err != nil {
 		return err
 	}
-	data, err := ioutil.ReadAll(res.Body)
-	if err != nil {
-		return err
+
+	savePath := sql.NullString{}
+	if res.StatusCode == http.StatusOK {
+		data, err := ioutil.ReadAll(res.Body)
+		if err != nil {
+			return err
+		}
+
+		content, _, err := toReadableHtml(data)
+		if err != nil {
+			return err
+		}
+		// write html to path
+		outPath := path.Join(htmlPath, it.Path("html"))
+		if err = ioutil.WriteFile(outPath, content, 0644); err != nil {
+			return err
+		}
+		if !path.IsAbs(outPath) {
+			outPath, _ = filepath.Abs(outPath)
+		}
+		savePath.String = outPath
+		savePath.Valid = len(outPath) > 0
 	}
 
-	content, _, err := toReadableHtml(data)
-	if err != nil {
-		return err
-	}
-	// write html to path
-	outPath := path.Join(htmlPath, it.Path("html"))
-	err = ioutil.WriteFile(outPath, content, 0644)
-	if err != nil {
-		return err
-	}
-	if !path.IsAbs(outPath) {
-		outPath, _ = filepath.Abs(outPath)
-	}
-
-	if _, err = s.Exec(link, it.ID, outPath); err != nil {
+	if _, err = s.Exec(link, it.ID, savePath, res.StatusCode); err != nil {
 		return err
 	}
 
