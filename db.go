@@ -60,6 +60,7 @@ func createTables(c *sql.DB) error {
 		guid TEXT,
 		title TEXT,
 		author TEXT,
+		feed_index INTEGER,
 		published_date DATETIME,
 		last_loaded DATETIME,
 		last_status INTEGER,
