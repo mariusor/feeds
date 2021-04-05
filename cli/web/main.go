@@ -16,25 +16,16 @@ import (
 )
 
 var errorTpl = template.Must(template.New("error.html").ParseFiles("web/templates/error.html"))
+
 var notFoundHandler = func (e error) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		http.Error(w, e.Error(), http.StatusNotFound)
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		w.WriteHeader(http.StatusNotFound)
+		msg := []byte(e.Error())
+		msg[0] = strings.ToUpper(string(msg[0]))[0]
+		errorTpl.Execute(w, string(msg))
 	}
-}
-
-func logMw(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Do stuff here
-		log.Println(r.RequestURI)
-		// Call the next handler, which can be another middleware in the chain, or the final handler.
-		next.ServeHTTP(w, r)
-	})
-}
-
-func authMw(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		next.ServeHTTP(w, r)
-	})
 }
 
 func genRoutes(dbDsn string) *http.ServeMux {
