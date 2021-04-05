@@ -78,7 +78,31 @@ func genRoutes(dbDsn string) *http.ServeMux {
 		}
 	}
 	r.HandleFunc("/", feedsListing.Handler)
+	r.HandleFunc("/login/", (targets{Targets: feeds.ValidTargets}).Handler)
+	for typ := range feeds.ValidTargets {
+		service := sluggifyTitle(typ)
+		switch service {
+		case "mykindle":
+			r.HandleFunc(path.Join("/login", service), (target{Target: feeds.Kindle, Details: feeds.DefaultSender}).Handler)
+		case "pocket":
+			r.HandleFunc(path.Join("/login", service), (target{Target: feeds.Pocket}).Handler)
+		}
+	}
 	return r
+}
+
+type target struct {
+	Target feeds.Target
+	Details interface{}
+}
+
+func (t target) Handler(w http.ResponseWriter, r *http.Request) {
+	tt, err := tpl(fmt.Sprintf("%s.html", t.Target.Type), r)
+	if err != nil {
+		errorTpl.Execute(w, err)
+		return
+	}
+	tt.Execute(w, t)
 }
 
 func main() {
@@ -202,6 +226,19 @@ func sluggifyTitle(s string) string {
 		b = b[:len(b)-1]
 	}
 	return string(b)
+}
+
+type targets struct {
+	Targets map[string]string
+}
+
+func (t targets) Handler(w http.ResponseWriter, r *http.Request) {
+	tt, err := tpl("login.html", r)
+	if err != nil {
+		errorTpl.Execute(w, err)
+		return
+	}
+	tt.Execute(w, t)
 }
 
 func fmtDuration(d time.Duration) template.HTML {

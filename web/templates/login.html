@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Login</title>
+</head>
+<body>
+<dl>
+{{ range $typ, $desc := .Targets }}
+    <dt><a href="/login/{{ sluggify $typ }}">{{$typ}}</a></dt>
+    <dd>{{$desc}}</dd>
+{{ else }}
+    <dt>No services available at the moment.</dt>
+{{ end }}
+</dl>
+</body>
+</html>

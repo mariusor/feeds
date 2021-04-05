@@ -11,25 +11,35 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-const htmlDir = "articles"
-const mobiDir = "output/mobi"
+var DefaultSender = SMTPCreds{
+	Server:   "smtp.example.com",
+	Port:     "587",
+	From:     "feedsync@example.com",
+	User:     "FeedSync",
+	Password: "",
+}
 
-//const dbFilePath = "feeds.db"
+var Kindle = Target{
+	ID:    1,
+	Type:  "kindle",
+	Flags: 0,
+}
 
-type smtpCreds struct {
+type SMTPCreds struct {
 	Server   string `json:"server"`
 	Port     string `json:"port"`
 	From     string `json:"from"`
 	User     string `json:"user"`
 	Password string `json:"password"`
 }
+
 type destination struct {
 	To string `json:"to"`
 }
 
 func DispatchToKindle(subject string, attachment string, c *sql.DB) (bool, error) {
 	if attachment == "" {
-		return false, errors.New("Missing attachment file")
+		return false, errors.New("missing attachment file")
 	}
 	targets := "SELECT targets.data, outputs.credentials FROM targets INNER JOIN outputs ON outputs.id = targets.output_id WHERE outputs.type = 'kindle'"
 	r, err := c.Query(targets)
@@ -42,7 +52,7 @@ func DispatchToKindle(subject string, attachment string, c *sql.DB) (bool, error
 
 		r.Scan(&data, &credentials)
 
-		var settings smtpCreds
+		var settings SMTPCreds
 		var target destination
 		err = json.Unmarshal(credentials, &settings)
 		if err != nil {
