@@ -9,6 +9,7 @@ import (
 
 type Item struct {
 	ID        int
+	FeedIndex int
 	URL       *url.URL
 	GUID      string
 	Title     string
@@ -30,5 +31,5 @@ type Content struct {
 }
 
 func (i Item) Path(ext string) string {
-	return fmt.Sprintf("%05d %s.%s", i.ID, strings.TrimSpace(i.Title), ext)
+	return fmt.Sprintf("%05d %s.%s", i.FeedIndex, strings.TrimSpace(i.Title), ext)
 }

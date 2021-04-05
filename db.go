@@ -47,6 +47,7 @@ func createTables(c *sql.DB) error {
 		author TEXT,
 		frequency REAL,
 		last_loaded DATETIME,
+		last_status INTEGER,
 		flags INTEGER DEFAULT 0
 	)`
 	if _, err := c.Exec(feeds); err != nil {
@@ -196,11 +197,11 @@ func GetFeeds(c *sql.DB) ([]Feed, error) {
 }
 
 func GetNonFetchedItems(c *sql.DB) ([]Item, error) {
-	sql := `SELECT items.id, feeds.title as feed_title, items.title as title, items.url 
+	sql := `SELECT items.id, items.feed_index, feeds.title as feed_title, items.title as title, items.url 
 FROM items 
     INNER JOIN feeds ON feeds.id = items.feed_id 
     LEFT JOIN items_contents ON items_contents.item_id = items.id 
-WHERE items_contents.id IS NULL group by items.id`
+WHERE items_contents.id IS NULL group by items.id order by items.feed_index asc`
 	s, err := c.Query(sql)
 	if err != nil {
 		return nil, err
@@ -212,7 +213,7 @@ WHERE items_contents.id IS NULL group by items.id`
 		it := Item{}
 		var link string
 
-		err := s.Scan(&it.ID, &it.Feed.Title, &it.Title, &link)
+		err := s.Scan(&it.ID, &it.FeedIndex, &it.Feed.Title, &it.Title, &link)
 		if err != nil {
 			continue
 		}

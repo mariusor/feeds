@@ -26,9 +26,7 @@ func CheckFeed(f Feed, c *sql.DB) (bool, error) {
 	}
 
 	count := 0
-
-	updateTitle := "UPDATE feeds SET title = ?, last_loaded = ? WHERE id = ?"
-	c.Exec(updateTitle, doc.Title, time.Now().UTC(), f.ID)
+	lastLoaded := time.Now().UTC()
 
 	itemSel := "SELECT id FROM items WHERE url = ?"
 	s, err := c.Prepare(itemSel)
@@ -54,13 +52,16 @@ func CheckFeed(f Feed, c *sql.DB) (bool, error) {
 
 		count++
 	}
-	itemIns := "INSERT INTO items (url, feed_id, guid, title, author, published_date) VALUES(?, ?, ?, ?, ?, ?)"
+	itemIns := `
+INSERT INTO items (url, feed_id, guid, title, published_date, last_loaded, author, feed_index)
+VALUES (?, ?, ?, ?, ?, ?, (select author from feeds where id = ? LIMIT 1), ifnull((select feed_index from items where feed_id = ? order by feed_index desc limit 1),0)+1);
+`
 	s, err = c.Prepare(itemIns)
 	if err != nil {
 		return false, err
 	}
 	for _, it := range all {
-		_, err := s.Exec(it.URL.String(), it.Feed.ID, it.GUID, it.Title, it.Author, it.Published)
+		_, err := s.Exec(it.URL.String(), it.Feed.ID, it.GUID, it.Title, it.Published.UTC().Format(time.RFC3339), lastLoaded.Format(time.RFC3339), it.Feed.ID, it.Feed.ID)
 		if err != nil {
 			log.Printf("Error: %s", err)
 			continue
@@ -72,6 +73,13 @@ func CheckFeed(f Feed, c *sql.DB) (bool, error) {
 	} else {
 		log.Printf("%d new articles\n", count)
 	}
+
+	updateFeed := "UPDATE feeds SET title = ?, last_loaded = ? WHERE id = ?"
+	params := []interface{} {doc.Title, lastLoaded.Format(time.RFC3339), f.ID}
+	if _, err = c.Exec(updateFeed, params...); err != nil {
+		return false, err
+	}
+
 
 	return true, nil
 }

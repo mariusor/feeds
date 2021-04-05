@@ -7,13 +7,18 @@ import (
 	"os"
 	"path"
 	"strings"
+	"time"
 
 	"github.com/mariusor/feeds"
 	"github.com/mariusor/go-readability"
+
 	"golang.org/x/sync/errgroup"
 )
 
-const chunkSize = 10
+const (
+	chunkSize = 5
+	defaultSleepAfterBatch = 200*time.Millisecond
+)
 
 func main() {
 	var (
@@ -58,9 +63,10 @@ func main() {
 			}
 			g.Go(func() error {
 				err := feeds.LoadItem(it, c, htmlPath)
-				log.Printf("Loaded[%5d] %s [%s]", it.ID, it.URL.String(), "OK")
+				log.Printf("Loaded[%5d] %s [%s]", it.FeedIndex, it.URL.String(), "OK")
 				return err
 			})
+			time.Sleep(defaultSleepAfterBatch)
 		}
 		if err := g.Wait(); err != nil {
 			log.Fatal(err)

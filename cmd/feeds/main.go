@@ -60,25 +60,13 @@ func main() {
 					last = time.Now().UTC().Sub(f.Updated)
 					log.Printf("Last checked %s ago", last.Round(time.Minute).String())
 				}
-				if last <= f.Frequency {
+				if last > 0 && last <= f.Frequency {
 					log.Printf(" ...newer than %s, skipping.\n", f.Frequency.String())
 					return nil
 				}
 
-				updateFeed := "UPDATE feeds SET last_loaded = ?"
-				params := []interface{}{
-					time.Now().UTC(),
-				}
 				if _, err = feeds.CheckFeed(f, c); err != nil {
 					log.Printf("Error: %s", err)
-					updateFeed += ", flags = ?"
-					params = append(params, feeds.FlagsDisabled)
-				}
-				updateFeed += ` WHERE id = ?`
-				params = append(params, f.ID)
-				if _, err = c.Exec(updateFeed, params...); err != nil {
-					log.Printf("Error: %s", err)
-					return nil
 				}
 				return nil
 			})
