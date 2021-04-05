@@ -56,8 +56,6 @@ func main() {
 	listenDomain := "127.0.0.1"
 
 	r := http.NewServeMux()
-	//r.Use(logMw)
-	//r.Use(authMw)
 	allFeeds, err := feeds.GetFeeds(c)
 	if err != nil {
 		log.Printf("unable to load feeds: %s", err)
