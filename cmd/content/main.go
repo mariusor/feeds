@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"log"
+	"net/http"
 	"os"
 	"path"
 	"strings"
@@ -16,14 +17,14 @@ import (
 )
 
 const (
-	chunkSize = 5
-	defaultSleepAfterBatch = 200*time.Millisecond
+	chunkSize              = 5
+	defaultSleepAfterBatch = 200 * time.Millisecond
 )
 
 func main() {
 	var (
 		basePath string
-		verbose bool
+		verbose  bool
 	)
 	flag.StringVar(&basePath, "path", "/tmp", "Base path")
 	flag.BoolVar(&verbose, "verbose", false, "Output debugging messages")
@@ -62,8 +63,11 @@ func main() {
 				err = os.Mkdir(htmlPath, 0755)
 			}
 			g.Go(func() error {
-				err := feeds.LoadItem(it, c, htmlPath)
-				log.Printf("Loaded[%5d] %s [%s]", it.FeedIndex, it.URL.String(), "OK")
+				status, err := feeds.LoadItem(it, c, htmlPath)
+				if err != nil {
+					log.Printf("Error: %s", err.Error())
+				}
+				log.Printf("Loaded[%5d] %s [%s]", it.FeedIndex, it.URL.String(), http.StatusText(status))
 				return err
 			})
 			time.Sleep(defaultSleepAfterBatch)
