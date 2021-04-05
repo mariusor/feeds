@@ -16,6 +16,11 @@ import (
 )
 
 var errorTpl = template.Must(template.New("error.html").ParseFiles("web/templates/error.html"))
+var notFoundHandler = func (e error) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, e.Error(), http.StatusNotFound)
+	}
+}
 
 func logMw(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -58,13 +63,27 @@ func genRoutes(dbDsn string) *http.ServeMux {
 			Items: items,
 		}
 		feedPath := "/" + sluggifyTitle(f.Title)
-		r.HandleFunc(feedPath, a.Handler)
+		r.HandleFunc(feedPath + "/", a.Handler)
 		for _, c := range items {
 			article := article{ Feed: f, Item: c }
 			articlePath := path.Join(feedPath, sluggifyTitle(c.Item.Title))
-			r.HandleFunc(articlePath + ".mobi", article.Handler)
-			r.HandleFunc(articlePath + ".epub", article.Handler)
-			r.HandleFunc(articlePath + ".html", article.Handler)
+			articleHandlers := map[string]http.HandlerFunc{
+				".html" : article.Handler,
+				".mobi" : article.Handler,
+				".epub" : article.Handler,
+			}
+			if !fileExists(c.HTMLPath) {
+				articleHandlers[".html"] = notFoundHandler(fmt.Errorf("%q not found", c.Item.Title))
+			}
+			if !fileExists(c.EPubPath) {
+				articleHandlers[".epub"] = notFoundHandler(fmt.Errorf("%q not found", c.Item.Title))
+			}
+			if !fileExists(c.MobiPath) {
+				articleHandlers[".mobi"] = notFoundHandler(fmt.Errorf("%q not found", c.Item.Title))
+			}
+			for ext, handlerFn := range articleHandlers {
+				r.HandleFunc(articlePath + ext, handlerFn)
+			}
 		}
 	}
 	r.HandleFunc("/", feedsListing.Handler)
@@ -106,6 +125,10 @@ type feedsListing struct {
 }
 
 func (i feedsListing) Handler(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != "/" {
+		notFoundHandler(fmt.Errorf("feed %q not found", path.Base(r.URL.Path)))(w, r)
+		return
+	}
 	t, err := tpl("index.html", r)
 	if err != nil {
 		errorTpl.Execute(w, err)
@@ -121,14 +144,26 @@ var tplFuncs = func(r *http.Request) template.FuncMap {
 			return template.HTMLAttr(sluggifyTitle(s))
 		},
 		"request": func () http.Request { return *r },
+		"hasHtml": func (c feeds.Content) bool { return fileExists(c.HTMLPath)},
+		"hasMobi": func (c feeds.Content) bool { return fileExists(c.MobiPath)},
+		"hasEPub": func (c feeds.Content) bool { return fileExists(c.EPubPath)},
 	}
 } 
+
+func fileExists(file string) bool {
+	_, err := os.Stat(file)
+	return err == nil
+}
 
 func tpl(n string, r *http.Request) (*template.Template, error) {
 	return template.New(n).Funcs(tplFuncs(r)).ParseFiles(path.Join("web/templates/", n))
 }
 
 func (a articleListing) Handler (w http.ResponseWriter, r *http.Request) {
+	if path.Base(r.URL.Path) != sluggifyTitle(a.Feed.Title) {
+		notFoundHandler(fmt.Errorf("feed %q does not contain an article named %q", a.Feed.Title, path.Base(r.URL.Path)))(w, r)
+		return
+	}
 	t, err := tpl("items.html", r)
 	if err != nil {
 		errorTpl.Execute(w, err)
