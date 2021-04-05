@@ -122,11 +122,11 @@ func createTables(c *sql.DB) error {
 	return nil
 }
 
-func LoadItem(it Item, c *sql.DB, htmlPath string) error {
-	contentIns := `INSERT INTO items_contents (url, item_id, html_path, last_status) VALUES(?, ?, ?, ?)`
+func LoadItem(it Item, c *sql.DB, htmlPath string) (int, error) {
+	contentIns := `INSERT INTO items_contents (url, item_id, html_path) VALUES(?, ?, ?)`
 	s, err := c.Prepare(contentIns)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	defer s.Close()
 
@@ -134,37 +134,37 @@ func LoadItem(it Item, c *sql.DB, htmlPath string) error {
 	res, err := http.Get(link)
 	defer res.Body.Close()
 	if err != nil {
-		return err
+		return 0, err
 	}
 
 	savePath := sql.NullString{}
 	if res.StatusCode == http.StatusOK {
 		data, err := ioutil.ReadAll(res.Body)
 		if err != nil {
-			return err
+			return res.StatusCode, err
 		}
 
 		content, _, err := toReadableHtml(data)
 		if err != nil {
-			return err
+			return res.StatusCode, err
 		}
 		// write html to path
 		outPath := path.Join(htmlPath, it.Path("html"))
 		if err = ioutil.WriteFile(outPath, content, 0644); err != nil {
-			return err
+			return res.StatusCode, err
 		}
 		if !path.IsAbs(outPath) {
 			outPath, _ = filepath.Abs(outPath)
 		}
 		savePath.String = outPath
 		savePath.Valid = len(outPath) > 0
+
+		if _, err = s.Exec(link, it.ID, savePath); err != nil {
+			return res.StatusCode, err
+		}
 	}
 
-	if _, err = s.Exec(link, it.ID, savePath, res.StatusCode); err != nil {
-		return err
-	}
-
-	return nil
+	return res.StatusCode, nil
 }
 
 func GetFeeds(c *sql.DB) ([]Feed, error) {
