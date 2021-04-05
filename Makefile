@@ -42,24 +42,24 @@ TEST := $(GO) test $(BUILDFLAGS)
 all: content dispatch feeds ebook web
 
 content: mod_tidy bin/content
-bin/content: cli/content/main.go $(APPSOURCES)
-	$(BUILD) -tags $(ENV) -o $@ ./cli/content/main.go
+bin/content: cmd/content/main.go $(APPSOURCES)
+	$(BUILD) -tags $(ENV) -o $@ ./cmd/content/main.go
 
 ebook: mod_tidy bin/ebook
-bin/ebook: cli/ebook/main.go $(APPSOURCES)
-	$(BUILD) -tags $(ENV) -o $@ ./cli/ebook/main.go
+bin/ebook: cmd/ebook/main.go $(APPSOURCES)
+	$(BUILD) -tags $(ENV) -o $@ ./cmd/ebook/main.go
 
 feeds: mod_tidy bin/feeds
-bin/feeds: cli/feeds/main.go $(APPSOURCES)
-	$(BUILD) -tags $(ENV) -o $@ ./cli/feeds/main.go
+bin/feeds: cmd/feeds/main.go $(APPSOURCES)
+	$(BUILD) -tags $(ENV) -o $@ ./cmd/feeds/main.go
 
 dispatch: mod_tidy bin/dispatch
-bin/dispatch: cli/dispatch/main.go $(APPSOURCES)
-	$(BUILD) -tags $(ENV) -o $@ ./cli/dispatch/main.go
+bin/dispatch: cmd/dispatch/main.go $(APPSOURCES)
+	$(BUILD) -tags $(ENV) -o $@ ./cmd/dispatch/main.go
 
 web: mod_tidy bin/web
-bin/web: cli/web/main.go $(APPSOURCES)
-	$(BUILD) -tags $(ENV) -o $@ ./cli/web/main.go
+bin/web: cmd/web/main.go $(APPSOURCES)
+	$(BUILD) -tags $(ENV) -o $@ ./cmd/web/main.go
 
 clean:
 	-$(RM) bin/*
