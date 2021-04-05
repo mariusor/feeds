@@ -8,8 +8,6 @@ require (
 	github.com/SlyMarbo/rss v1.0.1
 	github.com/bmaupin/go-epub v0.5.3
 	github.com/gofrs/uuid v4.0.0+incompatible // indirect
-	github.com/gorilla/securecookie v1.1.1
-	github.com/gorilla/sessions v1.2.0
 	github.com/jordan-wright/email v0.0.0-20190819015918-041e0cec78b0
 	github.com/mariusor/go-readability v0.0.0-20210403100704-2ca6e45959f4
 	golang.org/x/net v0.0.0-20210331212208-0fccb6fa2b5c // indirect
