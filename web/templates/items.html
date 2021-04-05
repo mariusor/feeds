@@ -13,13 +13,13 @@ Articles:
 {{ range $key, $item := .Items }}
 <li>
     {{ if hasHtml $item }}
-    <a href="/{{ $parent }}/{{ $item.Item.Title | sluggify }}.html">{{- $item.Item.Title -}}</a>
+    <a href="/{{ $parent }}/{{ $item.Item.PathSlug }}.html">{{- $item.Item.Title -}}</a>
     {{ else }}
     {{- $item.Item.Title -}}
     {{ end }}
     {{ if not $item.Item.Updated.IsZero }} Last updated {{ $item.Item.Updated -}} {{ end }}<br/>
-    {{ if hasEPub $item }} <a download href="/{{ $parent }}/{{ $item.Item.Title | sluggify }}.epub">epub</a>{{ end }}
-    {{ if hasMobi $item }} <a download href="/{{ $parent }}/{{ $item.Item.Title | sluggify }}.mobi">mobi</a>{{ end }}
+    {{ if hasEPub $item }} <a download href="/{{ $parent }}/{{ $item.Item.PathSlug }}.epub">epub</a>{{ end }}
+    {{ if hasMobi $item }} <a download href="/{{ $parent }}/{{ $item.Item.PathSlug }}.mobi">mobi</a>{{ end }}
 </li>
 {{ end }}
 </ol>

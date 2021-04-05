@@ -277,7 +277,9 @@ func GetContentsByFeed(c *sql.DB, f Feed) ([]Content, error) {
        epub_path 
 	FROM items_contents 
 INNER JOIN items ON items.id = items_contents.item_id 
-INNER JOIN feeds ON feeds.id = items.feed_id WHERE items.feed_id = ?;`
+INNER JOIN feeds ON feeds.id = items.feed_id 
+WHERE items.feed_id = ?
+GROUP by items.title order by items.feed_index asc;`
 
 	s, err := c.Query(sql, f.ID)
 	if err != nil {

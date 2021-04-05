@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"os"
 	"path"
-	"regexp"
 	"strings"
 	"time"
 
@@ -53,11 +52,11 @@ func genRoutes(dbDsn string) *http.ServeMux {
 			Feed: f,
 			Items: items,
 		}
-		feedPath := "/" + sluggifyTitle(f.Title)
+		feedPath := "/" + feeds.Slug(f.Title)
 		r.HandleFunc(feedPath + "/", a.Handler)
 		for _, c := range items {
 			article := article{ Feed: f, Item: c }
-			articlePath := path.Join(feedPath, sluggifyTitle(c.Item.Title))
+			articlePath := path.Join(feedPath, c.Item.PathSlug())
 			articleHandlers := map[string]http.HandlerFunc{
 				".html" : article.Handler,
 				".mobi" : article.Handler,
@@ -80,7 +79,7 @@ func genRoutes(dbDsn string) *http.ServeMux {
 	r.HandleFunc("/", feedsListing.Handler)
 	r.HandleFunc("/login/", (targets{Targets: feeds.ValidTargets}).Handler)
 	for typ := range feeds.ValidTargets {
-		service := sluggifyTitle(typ)
+		service := feeds.Slug(typ)
 		switch service {
 		case "mykindle":
 			r.HandleFunc(path.Join("/login", service), (target{Target: feeds.Kindle, Details: feeds.DefaultSender}).Handler)
@@ -156,7 +155,7 @@ var tplFuncs = func(r *http.Request) template.FuncMap {
 	return template.FuncMap{
 		"fmtDuration": fmtDuration,
 		"sluggify": func (s string) template.HTMLAttr {
-			return template.HTMLAttr(sluggifyTitle(s))
+			return template.HTMLAttr(feeds.Slug(s))
 		},
 		"request": func () http.Request { return *r },
 		"hasHtml": func (c feeds.Content) bool { return fileExists(c.HTMLPath)},
@@ -175,7 +174,7 @@ func tpl(n string, r *http.Request) (*template.Template, error) {
 }
 
 func (a articleListing) Handler (w http.ResponseWriter, r *http.Request) {
-	if path.Base(r.URL.Path) != sluggifyTitle(a.Feed.Title) {
+	if path.Base(r.URL.Path) != feeds.Slug(a.Feed.Title) {
 		notFoundHandler(fmt.Errorf("feed %q does not contain an article named %q", a.Feed.Title, path.Base(r.URL.Path)))(w, r)
 		return
 	}
@@ -207,25 +206,6 @@ func (a article) Handler (w http.ResponseWriter, r *http.Request) {
 type article struct {
 	Feed feeds.Feed
 	Item feeds.Content
-}
-
-func sluggifyTitle(s string) string {
-	s = strings.Map(func (r rune) rune {
-		switch r {
-		case ',', '?', '!', '\'', '`':
-			return -1
-		}
-		if (r >= '0' && r <= '9') || (r >= 'A' && r <= 'z') {
-			return r
-		}
-		return '-'
-	}, strings.ToLower(s))
-	rr := regexp.MustCompile("-+")
-	b := rr.ReplaceAll([]byte(s), []byte{'-'})
-	if b[len(b)-1] == '-' {
-		b = b[:len(b)-1]
-	}
-	return string(b)
 }
 
 type targets struct {
