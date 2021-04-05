@@ -262,3 +262,31 @@ INNER JOIN feeds ON feeds.id = items.feed_id WHERE mobi_path IS NULL OR epub_pat
 
 	return all, nil
 }
+
+func GetContentsByFeed(c *sql.DB, f Feed) ([]Content, error) {
+	sql := `SELECT 
+       items_contents.id,
+       items.id,
+       feeds.title,
+       items.title,
+       items.author,
+       html_path,
+       mobi_path,
+       epub_path 
+	FROM items_contents 
+INNER JOIN items ON items.id = items_contents.item_id 
+INNER JOIN feeds ON feeds.id = items.feed_id WHERE items.feed_id = ?;`
+
+	s, err := c.Query(sql, f.ID)
+	if err != nil {
+		return nil, err
+	}
+	all := make([]Content, 0)
+	for s.Next() {
+		cont := Content{}
+		s.Scan(&cont.ID, &cont.Item.ID, &cont.Item.Feed.Title, &cont.Item.Title, &cont.Item.Author, &cont.HTMLPath, &cont.MobiPath, &cont.EPubPath)
+		all = append(all, cont)
+	}
+
+	return all, nil
+}

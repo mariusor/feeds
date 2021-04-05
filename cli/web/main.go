@@ -3,21 +3,16 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/mariusor/feeds"
 	"html/template"
 	"log"
 	"net/http"
 	"os"
 	"path"
-	"sort"
+	"regexp"
+	"strings"
 	"time"
 
-	"github.com/gorilla/mux"
-	"github.com/gorilla/securecookie"
-	"github.com/gorilla/sessions"
-	"github.com/markbates/goth"
-	"github.com/markbates/goth/gothic"
-	"github.com/markbates/goth/providers/github"
+	"github.com/mariusor/feeds"
 )
 
 var errorTpl = template.Must(template.New("error.html").ParseFiles("web/templates/error.html"))
@@ -59,103 +54,114 @@ func main() {
 	defer c.Close()
 
 	listenDomain := "127.0.0.1"
-	goth.UseProviders(
-		//twitter.New(os.Getenv("TWITTER_KEY"), os.Getenv("TWITTER_SECRET"), "http://"+listenDomain+":3000/auth/twitter/callback"),
-		// If you'd like to use authenticate instead of authorize in Twitter provider, use this instead.
-		//twitter.NewAuthenticate(os.Getenv("TWITTER_KEY"), os.Getenv("TWITTER_SECRET"), "http://"+listenDomain+":3000/auth/twitter/callback"),
-		//facebook.New(os.Getenv("FACEBOOK_KEY"), os.Getenv("FACEBOOK_SECRET"), "http://"+listenDomain+":3000/auth/facebook/callback"),
-		github.New(os.Getenv("GITHUB_KEY"), os.Getenv("GITHUB_SECRET"), "http://"+listenDomain+":3000/auth/github/callback"),
-		//gitlab.New(os.Getenv("GITLAB_KEY"), os.Getenv("GITLAB_SECRET"), "http://"+listenDomain+":3000/auth/gitlab/callback"),
-	)
 
-	m := make(map[string]string)
-	//m["facebook"] = "Facebook"
-	//m["twitter"] = "Twitter"
-	m["github"] = "Github"
-	//m["gitlab"] = "Gitlab"
-
-	var keys []string
-	for k := range m {
-		keys = append(keys, k)
-	}
-
-	key := securecookie.GenerateRandomKey(32)
-	maxAge := 8600 * 30
-	store := sessions.NewFilesystemStore("", key)
-	store.Options.Path = "/"
-	store.Options.Domain = listenDomain
-	store.Options.HttpOnly = true
-	store.Options.MaxAge = maxAge
-
-	gothic.Store = store
-
-	sort.Strings(keys)
-
-	r := mux.NewRouter()
-	r.Use(logMw)
+	r := http.NewServeMux()
+	//r.Use(logMw)
 	//r.Use(authMw)
-	feeds, err := feeds.GetFeeds(c)
+	allFeeds, err := feeds.GetFeeds(c)
 	if err != nil {
 		log.Printf("unable to load feeds: %s", err)
 	}
-	providerIndex := &Index{
-		Providers: m,
-		Feeds:     feeds,
+
+	feedsListing := feedsListing{
+		Feeds:     allFeeds,
 	}
-
-	r.HandleFunc("/auth/{provider}/callback", func(w http.ResponseWriter, req *http.Request) {
-		user, err := gothic.CompleteUserAuth(w, req)
+	for _, f := range allFeeds {
+		items, err := feeds.GetContentsByFeed(c, f)
 		if err != nil {
-			errorTpl.Execute(w, err)
-			return
+			panic(err)
 		}
-		t, _ := template.New("user.html").ParseFiles("web/templates/user.html")
-		t.Execute(w, user)
-	})
-
-	r.HandleFunc("/logout/{provider}", func(w http.ResponseWriter, req *http.Request) {
-		gothic.Logout(w, req)
-		w.Header().Set("Location", "/")
-		w.WriteHeader(http.StatusTemporaryRedirect)
-	})
-
-	r.HandleFunc("/auth/{provider}", func(w http.ResponseWriter, req *http.Request) {
-		// try to get the user without re-authenticating
-		gothUser, err := gothic.CompleteUserAuth(w, req)
-		if err != nil {
-			errorTpl.Execute(w, err)
-			return
+		a := articleListing{
+			Feed: f,
+			Items: items,
 		}
-		t, _ := template.New("user.html").ParseFiles("web/templates/user.html")
-		t.Execute(w, gothUser)
-		gothic.BeginAuthHandler(w, req)
-	})
-
-	r.HandleFunc("/", func(w http.ResponseWriter, req *http.Request) {
-		t, err := template.New("index.html").Funcs(template.FuncMap{
-			"fmtDuration": fmtDuration,
-		}).ParseFiles("web/templates/index.html")
-		if err != nil {
-			errorTpl.Execute(w, err)
-			return
+		feedPath := "/" + sluggifyTitle(f.Title) + "/"
+		r.HandleFunc(feedPath, a.Handler)
+		for _, c := range items {
+			article := article{ Feed: f, Item: c }
+			articlePath := path.Join(feedPath, sluggifyTitle(c.Item.Title)) + "/"
+			r.HandleFunc(articlePath, article.Handler)
 		}
-		t.Execute(w, providerIndex)
-	})
+	}
+	r.HandleFunc("/", feedsListing.Handler)
 	log.Fatal(http.ListenAndServe(listenDomain+":3000", r))
 }
 
-type Index struct {
-	Providers ProviderList
+type feedsListing struct {
 	Feeds     []feeds.Feed
 }
-type ProviderList map[string]string
+
+func (i feedsListing) Handler(w http.ResponseWriter, r *http.Request) {
+	t, err := tpl("index.html", r)
+	if err != nil {
+		errorTpl.Execute(w, err)
+		return
+	}
+	t.Execute(w, i)
+}
+
+var tplFuncs = func(r *http.Request) template.FuncMap {
+	return template.FuncMap{
+		"fmtDuration": fmtDuration,
+		"sluggify": func (s string) template.HTMLAttr {
+			return template.HTMLAttr(sluggifyTitle(s))
+		},
+		"request": func () http.Request { return *r },
+	}
+} 
+
+func tpl(n string, r *http.Request) (*template.Template, error) {
+	return template.New(n).Funcs(tplFuncs(r)).ParseFiles(path.Join("web/templates/", n))
+}
+
+func (a articleListing) Handler (w http.ResponseWriter, r *http.Request) {
+	t, err := tpl("items.html", r)
+	if err != nil {
+		errorTpl.Execute(w, err)
+		return
+	}
+	t.Execute(w, a)
+}
+
+type articleListing struct {
+	Feed feeds.Feed
+	Items []feeds.Content
+}
+
+func (a article) Handler (w http.ResponseWriter, r *http.Request) {
+	http.ServeFile(w, r, a.Item.HTMLPath)
+}
+
+type article struct {
+	Feed feeds.Feed
+	Item feeds.Content
+}
+
+func sluggifyTitle(s string) string {
+	s = strings.Map(func (r rune) rune {
+		switch r {
+		case ',', '?', '!', '\'', '`':
+			return -1
+		}
+		if (r >= '0' && r <= '9') || (r >= 'A' && r <= 'z') {
+			return r
+		}
+		return '-'
+	}, strings.ToLower(s))
+	rr := regexp.MustCompile("-+")
+	b := rr.ReplaceAll([]byte(s), []byte{'-'})
+	if b[len(b)-1] == '-' {
+		b = b[:len(b)-1]
+	}
+	return string(b)
+}
 
 func fmtDuration(d time.Duration) template.HTML {
 	var (
-		unit = "week"
+		unit          = "week"
 		times float32 = -1.0
 	)
-	timesFn := func (d1, d2 time.Duration) float32 {
+	timesFn := func(d1, d2 time.Duration) float32 {
 		return float32(float64(d1) / float64(d2))
 	}
 	if d <= 0 {

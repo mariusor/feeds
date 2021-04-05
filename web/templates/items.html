@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ .Feed.Title }}</title>
+</head>
+<body>
+<div>
+<a href="/">Back</a><br/>
+Articles:
+<ol>
+{{- $parent := .Feed.Title | sluggify -}}
+{{ range $key, $item := .Items }}
+<li>
+    <a href="/{{ $parent }}/{{ $item.Item.Title | sluggify }}/">{{- $item.Item.Title -}}</a>
+    {{ if not $item.Item.Updated.IsZero }} Last updated {{ $item.Item.Updated -}} {{ end }}
+</li>
+{{ end }}
+</ol>
+</div>
+</body>
+</html>
