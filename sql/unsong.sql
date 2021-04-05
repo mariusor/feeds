@@ -93,10 +93,9 @@ INSERT INTO items (url, title, feed_id, author, feed_index) values ('https://uns
 INSERT INTO items (url, title, feed_id, author, feed_index) values ('https://unsongbook.com/chapter-66-in-the-forests-of-the-night/', '66. In The Forests Of The Night', 4, 'Scott Alexander', 93);
 INSERT INTO items (url, title, feed_id, author, feed_index) values ('https://unsongbook.com/chapter-67-the-night-of-enitharmons-joy/', '67. The Night Of Enitharmon’s Joy', 4, 'Scott Alexander', 94);
 INSERT INTO items (url, title, feed_id, author, feed_index) values ('https://unsongbook.com/chapter-68-puts-all-heaven-in-a-rage/', '68. Puts All Heaven In A Rage', 4, 'Scott Alexander', 95);
-
-INSERT INTO items (url, title, feed_id, author, feed_index) values ('https://unsongbook.com/book-iv-kings/', 'BOOK IV: KINGS', 4, 'Scott Alexander', 97);
-INSERT INTO items (url, title, feed_id, author, feed_index) values ('https://unsongbook.com/chapter-69-love-seeketh-not-itself-to-please/', '69. Love Seeketh Not Itself To Please', 4, 'Scott Alexander', 98);
-INSERT INTO items (url, title, feed_id, author, feed_index) values ('https://unsongbook.com/chapter-70-nor-for-itself-hath-any-care/', '70. Nor For Itself Hath Any Care', 4, 'Scott Alexander', 99);
-INSERT INTO items (url, title, feed_id, author, feed_index) values ('https://unsongbook.com/chapter-71-but-for-another-gives-its-ease/', '71. But For Another Gives Its Ease', 4, 'Scott Alexander', 100);
-INSERT INTO items (url, title, feed_id, author, feed_index) values ('https://unsongbook.com/chapter-72-and-builds-a-heaven-in-hells-despair/', '72. And Builds A Heaven In Hell’s Despair', 4, 'Scott Alexander', 101);
-INSERT INTO items (url, title, feed_id, author, feed_index) values ('https://unsongbook.com/epilogue/', 'Epilogue', 4, 'Scott Alexander', 102);
+INSERT INTO items (url, title, feed_id, author, feed_index) values ('https://unsongbook.com/book-iv-kings/', 'BOOK IV: KINGS', 4, 'Scott Alexander', 96);
+INSERT INTO items (url, title, feed_id, author, feed_index) values ('https://unsongbook.com/chapter-69-love-seeketh-not-itself-to-please/', '69. Love Seeketh Not Itself To Please', 4, 'Scott Alexander', 97);
+INSERT INTO items (url, title, feed_id, author, feed_index) values ('https://unsongbook.com/chapter-70-nor-for-itself-hath-any-care/', '70. Nor For Itself Hath Any Care', 4, 'Scott Alexander', 98);
+INSERT INTO items (url, title, feed_id, author, feed_index) values ('https://unsongbook.com/chapter-71-but-for-another-gives-its-ease/', '71. But For Another Gives Its Ease', 4, 'Scott Alexander', 99);
+INSERT INTO items (url, title, feed_id, author, feed_index) values ('https://unsongbook.com/chapter-72-and-builds-a-heaven-in-hells-despair/', '72. And Builds A Heaven In Hell’s Despair', 4, 'Scott Alexander', 100);
+INSERT INTO items (url, title, feed_id, author, feed_index) values ('https://unsongbook.com/epilogue/', 'Epilogue', 4, 'Scott Alexander', 101);
