@@ -16,8 +16,9 @@ import (
 const DBFilePath = "feeds.db"
 
 const (
-	FlagsNone     = iota
 	FlagsDisabled = 1 << iota
+
+	FlagsNone = 0
 )
 
 func DB(basePath string) (*sql.DB, error) {
