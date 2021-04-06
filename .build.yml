@@ -1,0 +1,12 @@
+image: archlinux
+packages:
+  - go
+sources:
+  - https://github.com/mariusor/feeds
+tasks:
+  - setup: |
+      cd feeds && go mod vendor
+  - build: |
+      cd feeds
+      make clean all
+
