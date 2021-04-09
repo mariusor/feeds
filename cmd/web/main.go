@@ -82,9 +82,9 @@ func genRoutes(dbDsn string) *http.ServeMux {
 		service := feeds.Slug(typ)
 		switch service {
 		case "mykindle":
-			r.HandleFunc(path.Join("/login", service), (target{Target: feeds.Kindle, Details: feeds.DefaultSender}).Handler)
+			r.HandleFunc(path.Join("/register", service), (target{Target: feeds.Kindle, Details: feeds.DefaultSender}).Handler)
 		case "pocket":
-			r.HandleFunc(path.Join("/login", service), (target{Target: feeds.Pocket}).Handler)
+			r.HandleFunc(path.Join("/register", service), (target{Target: feeds.Pocket}).Handler)
 		}
 	}
 	return r
@@ -100,6 +100,12 @@ func (t target) Handler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		errorTpl.Execute(w, err)
 		return
+	}
+	if t.Target.Type == "pocket" {
+		if _, err := feeds.PocketInit(); err != nil {
+			errorTpl.Execute(w, err)
+			return
+		}
 	}
 	tt.Execute(w, t)
 }

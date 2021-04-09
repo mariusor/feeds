@@ -13,7 +13,7 @@ export GOARCH=amd64
 export VERSION=(unknown)
 GO := go
 ENV ?= dev
-LDFLAGS ?= -X main.version=$(VERSION)
+LDFLAGS ?= -X main.version=$(VERSION) -X github.com/mariusor/feeds.PocketAppAccessKey=$(POCKET_ACCESS_KEY)
 BUILDFLAGS ?= -a -ldflags '$(LDFLAGS)'
 APPSOURCES := $(wildcard *.go) go.mod
 PROJECT_NAME := $(shell basename $(PWD))

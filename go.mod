@@ -10,6 +10,7 @@ require (
 	github.com/gofrs/uuid v4.0.0+incompatible // indirect
 	github.com/jordan-wright/email v0.0.0-20190819015918-041e0cec78b0
 	github.com/mariusor/go-readability v0.0.0-20210403100704-2ca6e45959f4
+	github.com/motemen/go-pocket v0.0.0-20201204003030-43b897100651 // indirect
 	golang.org/x/net v0.0.0-20210331212208-0fccb6fa2b5c // indirect
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
 	modernc.org/sqlite v1.10.0
