@@ -3,8 +3,6 @@ package feeds
 import (
 	"fmt"
 	"github.com/motemen/go-pocket/auth"
-	"net/http"
-	"net/http/httptest"
 )
 
 var Pocket = Target{
@@ -15,39 +13,36 @@ var Pocket = Target{
 
 var PocketConsumerKey = ""
 
-func PocketInit () (*auth.Authorization, error){
+type PocketAuth struct {
+	RequestToken  *auth.RequestToken
+	Authorization *auth.Authorization
+	AuthorizeURL  string
+	ConsumerKey   string
+}
+
+func PocketInit() (*PocketAuth, error) {
 	if PocketConsumerKey == "" {
 		return nil, fmt.Errorf("no Pocket application key has been set up")
 	}
-	return obtainAccessToken(PocketConsumerKey)
+	return &PocketAuth{ConsumerKey: PocketConsumerKey}, nil
 }
 
-func obtainAccessToken(consumerKey string) (*auth.Authorization, error) {
-	ch := make(chan struct{})
-	ts := httptest.NewServer(
-		http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-			if req.URL.Path == "/favicon.ico" {
-				http.Error(w, "Not Found", 404)
-				return
-			}
+func (p *PocketAuth) GenerateAuthorizationURL(redirectURL string) (string, error) {
+	var err error
 
-			w.Header().Set("Content-Type", "text/plain")
-			fmt.Fprintln(w, "Authorized.")
-			ch <- struct{}{}
-		}))
-	defer ts.Close()
-
-	redirectURL := ts.URL
-
-	requestToken, err := auth.ObtainRequestToken(consumerKey, redirectURL)
-	if err != nil {
-		return nil, err
+	if p.RequestToken, err = auth.ObtainRequestToken(p.ConsumerKey, redirectURL); err != nil {
+		return "", err
 	}
 
-	url := auth.GenerateAuthorizationURL(requestToken, redirectURL)
-	fmt.Println(url)
+	p.AuthorizeURL = auth.GenerateAuthorizationURL(p.RequestToken, redirectURL)
+	return p.AuthorizeURL, nil
+}
 
-	<-ch
-
-	return auth.ObtainAccessToken(consumerKey, requestToken)
+func (p *PocketAuth) ObtainAccessToken() error {
+	var err error
+	if p.RequestToken == nil {
+		return fmt.Errorf("request has not been authorized by user")
+	}
+	p.Authorization, err = auth.ObtainAccessToken(p.ConsumerKey, p.RequestToken)
+	return err
 }

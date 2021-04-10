@@ -16,7 +16,7 @@ import (
 
 var errorTpl = template.Must(template.New("error.html").ParseFiles("web/templates/error.html"))
 
-var notFoundHandler = func (e error) func(w http.ResponseWriter, r *http.Request) {
+var notFoundHandler = func(e error) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.Header().Set("X-Content-Type-Options", "nosniff")
@@ -29,7 +29,7 @@ var notFoundHandler = func (e error) func(w http.ResponseWriter, r *http.Request
 
 func genRoutes(dbDsn string) *http.ServeMux {
 	r := http.NewServeMux()
-	
+
 	c, err := feeds.DB(dbDsn)
 	if err != nil {
 		log.Fatal(err)
@@ -41,7 +41,7 @@ func genRoutes(dbDsn string) *http.ServeMux {
 	}
 
 	feedsListing := feedsListing{
-		Feeds:     allFeeds,
+		Feeds: allFeeds,
 	}
 	for _, f := range allFeeds {
 		items, err := feeds.GetContentsByFeed(c, f)
@@ -49,30 +49,30 @@ func genRoutes(dbDsn string) *http.ServeMux {
 			panic(err)
 		}
 		a := articleListing{
-			Feed: f,
+			Feed:  f,
 			Items: items,
 		}
 		feedPath := "/" + feeds.Slug(f.Title)
-		r.HandleFunc(feedPath + "/", a.Handler)
+		r.HandleFunc(feedPath+"/", a.Handler)
 		for _, c := range items {
-			article := article{ Feed: f, Item: c }
+			article := article{Feed: f, Item: c}
 			articlePath := path.Join(feedPath, c.Item.PathSlug())
 			articleHandlers := map[string]http.HandlerFunc{
-				".html" : article.Handler,
-				".mobi" : article.Handler,
-				".epub" : article.Handler,
+				articlePath + ".html": article.Handler,
+				articlePath + ".mobi": article.Handler,
+				articlePath + ".epub": article.Handler,
 			}
 			if !fileExists(c.HTMLPath) {
-				articleHandlers[".html"] = notFoundHandler(fmt.Errorf("%q not found", c.Item.Title))
+				articleHandlers[articlePath+".html"] = notFoundHandler(fmt.Errorf("%q not found", c.Item.Title))
 			}
 			if !fileExists(c.EPubPath) {
-				articleHandlers[".epub"] = notFoundHandler(fmt.Errorf("%q not found", c.Item.Title))
+				articleHandlers[articlePath+".epub"] = notFoundHandler(fmt.Errorf("%q not found", c.Item.Title))
 			}
 			if !fileExists(c.MobiPath) {
-				articleHandlers[".mobi"] = notFoundHandler(fmt.Errorf("%q not found", c.Item.Title))
+				articleHandlers[articlePath+".mobi"] = notFoundHandler(fmt.Errorf("%q not found", c.Item.Title))
 			}
-			for ext, handlerFn := range articleHandlers {
-				r.HandleFunc(articlePath + ext, handlerFn)
+			for path, handlerFn := range articleHandlers {
+				r.HandleFunc(path, handlerFn)
 			}
 		}
 	}
@@ -84,28 +84,46 @@ func genRoutes(dbDsn string) *http.ServeMux {
 		case "mykindle":
 			r.HandleFunc(path.Join("/register", service), (target{Target: feeds.Kindle, Details: feeds.DefaultSender}).Handler)
 		case "pocket":
-			r.HandleFunc(path.Join("/register", service), (target{Target: feeds.Pocket}).Handler)
+			pocketHandlers := map[string]http.HandlerFunc{}
+			if p, err := feeds.PocketInit(); err != nil {
+				pocketHandlers[path.Join("/register", service)] = notFoundHandler(fmt.Errorf("Pocket is not available: %w", err))
+			} else {
+				pocketHandlers[path.Join("/register", service)] = (target{Target: feeds.Pocket, Details: p}).Handler
+			}
+			for path, handlerFn := range pocketHandlers {
+				r.HandleFunc(path, handlerFn)
+			}
 		}
+
 	}
 	return r
 }
 
 type target struct {
-	Target feeds.Target
+	Target  feeds.Target
 	Details interface{}
 }
 
 func (t target) Handler(w http.ResponseWriter, r *http.Request) {
+	if t.Target.Type == "pocket" {
+		var err error
+		p, ok := t.Details.(*feeds.PocketAuth)
+		if !ok {
+			errorTpl.Execute(w, fmt.Errorf("invalid Pocket authorization data"))
+			return
+		}
+		if err = p.ObtainAccessToken(); err != nil {
+			redirectURL := "http://localhost:3000/register/pocket"
+			if _, err = p.GenerateAuthorizationURL(redirectURL); err != nil {
+				errorTpl.Execute(w, err)
+				return
+			}
+		}
+	}
 	tt, err := tpl(fmt.Sprintf("%s.html", t.Target.Type), r)
 	if err != nil {
 		errorTpl.Execute(w, err)
 		return
-	}
-	if t.Target.Type == "pocket" {
-		if _, err := feeds.PocketInit(); err != nil {
-			errorTpl.Execute(w, err)
-			return
-		}
 	}
 	tt.Execute(w, t)
 }
@@ -127,9 +145,9 @@ func main() {
 	go func() {
 		for {
 			select {
-			case <- ticker.C:
+			case <-ticker.C:
 				r = genRoutes(basePath)
-			case <- quit:
+			case <-quit:
 				ticker.Stop()
 				return
 			}
@@ -141,7 +159,7 @@ func main() {
 }
 
 type feedsListing struct {
-	Feeds     []feeds.Feed
+	Feeds []feeds.Feed
 }
 
 func (i feedsListing) Handler(w http.ResponseWriter, r *http.Request) {
@@ -160,15 +178,15 @@ func (i feedsListing) Handler(w http.ResponseWriter, r *http.Request) {
 var tplFuncs = func(r *http.Request) template.FuncMap {
 	return template.FuncMap{
 		"fmtDuration": fmtDuration,
-		"sluggify": func (s string) template.HTMLAttr {
+		"sluggify": func(s string) template.HTMLAttr {
 			return template.HTMLAttr(feeds.Slug(s))
 		},
-		"request": func () http.Request { return *r },
-		"hasHtml": func (c feeds.Content) bool { return fileExists(c.HTMLPath)},
-		"hasMobi": func (c feeds.Content) bool { return fileExists(c.MobiPath)},
-		"hasEPub": func (c feeds.Content) bool { return fileExists(c.EPubPath)},
+		"request": func() http.Request { return *r },
+		"hasHtml": func(c feeds.Content) bool { return fileExists(c.HTMLPath) },
+		"hasMobi": func(c feeds.Content) bool { return fileExists(c.MobiPath) },
+		"hasEPub": func(c feeds.Content) bool { return fileExists(c.EPubPath) },
 	}
-} 
+}
 
 func fileExists(file string) bool {
 	_, err := os.Stat(file)
@@ -179,7 +197,7 @@ func tpl(n string, r *http.Request) (*template.Template, error) {
 	return template.New(n).Funcs(tplFuncs(r)).ParseFiles(path.Join("web/templates/", n))
 }
 
-func (a articleListing) Handler (w http.ResponseWriter, r *http.Request) {
+func (a articleListing) Handler(w http.ResponseWriter, r *http.Request) {
 	if path.Base(r.URL.Path) != feeds.Slug(a.Feed.Title) {
 		notFoundHandler(fmt.Errorf("feed %q does not contain an article named %q", a.Feed.Title, path.Base(r.URL.Path)))(w, r)
 		return
@@ -193,11 +211,11 @@ func (a articleListing) Handler (w http.ResponseWriter, r *http.Request) {
 }
 
 type articleListing struct {
-	Feed feeds.Feed
+	Feed  feeds.Feed
 	Items []feeds.Content
 }
 
-func (a article) Handler (w http.ResponseWriter, r *http.Request) {
+func (a article) Handler(w http.ResponseWriter, r *http.Request) {
 	ext := path.Ext(r.URL.Path)
 	path := a.Item.HTMLPath
 	switch ext {
