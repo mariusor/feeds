@@ -13,10 +13,13 @@ var Pocket = Target{
 	Flags: 0,
 }
 
-var PocketAppAccessKey = ""
+var PocketConsumerKey = ""
 
 func PocketInit () (*auth.Authorization, error){
-	return obtainAccessToken(PocketAppAccessKey)
+	if PocketConsumerKey == "" {
+		return nil, fmt.Errorf("no Pocket application key has been set up")
+	}
+	return obtainAccessToken(PocketConsumerKey)
 }
 
 func obtainAccessToken(consumerKey string) (*auth.Authorization, error) {
