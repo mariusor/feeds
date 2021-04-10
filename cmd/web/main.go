@@ -44,7 +44,7 @@ func genRoutes(dbDsn string) *http.ServeMux {
 		Feeds: allFeeds,
 	}
 	for _, f := range allFeeds {
-		items, err := feeds.GetContentsByFeedAndType(c, f)
+		items, err := feeds.GetContentsByFeedAndType(c, f, "html")
 		if err != nil {
 			panic(err)
 		}
@@ -69,29 +69,58 @@ func genRoutes(dbDsn string) *http.ServeMux {
 		service := feeds.Slug(typ)
 		switch service {
 		case "mykindle":
-			r.HandleFunc(path.Join("/register", service), (target{Target: feeds.Kindle, Details: feeds.DefaultSender}).Handler)
+			r.HandleFunc(path.Join("/register", service), myKindleTarget(dbDsn).Handler)
 		case "pocket":
-			pocketHandlers := map[string]http.HandlerFunc{}
+			var handlerFn http.HandlerFunc
+			curPath := path.Join("/register", service)
 			if p, err := feeds.PocketInit(); err != nil {
-				pocketHandlers[path.Join("/register", service)] = notFoundHandler(fmt.Errorf("Pocket is not available: %w", err))
+				handlerFn = notFoundHandler(fmt.Errorf("Pocket is not available: %w", err))
 			} else {
-				pocketHandlers[path.Join("/register", service)] = (target{Target: feeds.Pocket, Details: p}).Handler
+				handlerFn = pocketTarget(dbDsn, curPath, p).Handler
 			}
-			for path, handlerFn := range pocketHandlers {
-				r.HandleFunc(path, handlerFn)
-			}
+			r.HandleFunc(curPath, handlerFn)
 		}
 
 	}
 	return r
 }
 
+func myKindleTarget(dbPath string) target {
+	return target{
+		dbPath: dbPath,
+		Target: feeds.Kindle,
+		Details: feeds.ServiceMyKindle{
+			SendCredentials: feeds.DefaultMyKindleSender,
+		},
+	}
+}
+
+func pocketTarget(dbPath, curPath string, p *feeds.PocketAuth) target {
+	if p.AppName == "" {
+		p.AppName = "FeedSync"
+	}
+	return target{
+		URL:     fmt.Sprintf("http://localhost:3000%s", curPath),
+		Target:  feeds.Pocket,
+		dbPath:  dbPath,
+		Details: p,
+	}
+}
+
 type target struct {
 	Target  feeds.Target
-	Details interface{}
+	URL     string
+	Details feeds.TargetService
+	dbPath  string
 }
 
 func (t target) Handler(w http.ResponseWriter, r *http.Request) {
+	c, err := feeds.DB(t.dbPath)
+	if err != nil {
+		errorTpl.Execute(w, fmt.Errorf("invalid Pocket authorization data"))
+		return
+	}
+	defer c.Close()
 	if t.Target.Type == "pocket" {
 		var err error
 		p, ok := t.Details.(*feeds.PocketAuth)
@@ -100,9 +129,18 @@ func (t target) Handler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if err = p.ObtainAccessToken(); err != nil {
-			redirectURL := "http://localhost:3000/register/pocket"
-			if _, err = p.GenerateAuthorizationURL(redirectURL); err != nil {
+			if _, err = p.GenerateAuthorizationURL(t.URL); err != nil {
 				errorTpl.Execute(w, err)
+				return
+			}
+		} else {
+			if p.Authorization == nil {
+				errorTpl.Execute(w, fmt.Errorf("invalid Pocket authorization data"))
+				return
+			}
+			_, err = feeds.LoadUserByService(c, p.Authorization.Username, t.Target.Type)
+			if err != nil {
+				errorTpl.Execute(w, fmt.Errorf("unable to save credentials to db: %w", err))
 				return
 			}
 		}

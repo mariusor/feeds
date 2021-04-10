@@ -6,8 +6,13 @@
 </head>
 <body>
 <main>
-    <p>After successfully authorizing the "feedSync" application you will receive a document with a link to confirm your subscription.</p>
+{{ if .Details.Authorization }}
+    {{ $auth := .Details.Authorization }}
+    <p>Name: {{ $auth.Username }}</p>
+{{ else }}
+    <p>After successfully authorizing the "{{ .Details.AppName }}" application you will receive a document with a code to confirm your subscription.</p>
     <a href="{{.Details.AuthorizeURL}}">Authorize</a>
+{{ end }}
 </main>
 </body>
 </html>

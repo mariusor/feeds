@@ -11,7 +11,7 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-var DefaultSender = SMTPCreds{
+var DefaultMyKindleSender = SMTPCreds{
 	Server:   "smtp.example.com",
 	Port:     "587",
 	From:     "feedsync@example.com",
@@ -33,7 +33,7 @@ type SMTPCreds struct {
 	Password string `json:"password"`
 }
 
-type destination struct {
+type myKindleDestination struct {
 	To string `json:"to"`
 }
 
@@ -53,7 +53,7 @@ func DispatchToKindle(subject string, attachment string, c *sql.DB) (bool, error
 		r.Scan(&data, &credentials)
 
 		var settings SMTPCreds
-		var target destination
+		var target myKindleDestination
 		err = json.Unmarshal(credentials, &settings)
 		if err != nil {
 			return false, err

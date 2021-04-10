@@ -3,6 +3,7 @@ package feeds
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -336,4 +337,33 @@ WHERE items.feed_id = ? and contents.type = ? GROUP BY items.title ORDER BY item
 	}
 
 	return all, nil
+}
+
+type User struct {
+	ID       int
+	Flags    int
+	Services map[string]TargetService
+}
+
+func LoadUserByService(c *sql.DB, username, service string) (*User, error) {
+	sql := `SELECT id, raw from users where json_extract("raw", '$.services.?.id') = ?`
+	s, err := c.Query(sql, service, username)
+	if err != nil {
+		return nil, err
+	}
+	all := make([]User, 0)
+	for s.Next() {
+		user := User{}
+		raw := make([]byte, 0)
+		s.Scan(&user.ID, &raw)
+		all = append(all, user)
+	}
+
+	if len(all) > 1 {
+		return nil, fmt.Errorf("too many users")
+	}
+	if len(all) == 0 {
+		return nil, fmt.Errorf("user not found")
+	}
+	return &all[0], nil
 }

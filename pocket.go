@@ -14,10 +14,15 @@ var Pocket = Target{
 var PocketConsumerKey = ""
 
 type PocketAuth struct {
+	AppName       string
 	RequestToken  *auth.RequestToken
 	Authorization *auth.Authorization
 	AuthorizeURL  string
 	ConsumerKey   string
+}
+
+func(p *PocketAuth) Label()string {
+	return "Pocket(deprecated)"
 }
 
 func PocketInit() (*PocketAuth, error) {

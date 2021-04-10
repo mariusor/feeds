@@ -5,9 +5,10 @@
     <title>Login with your Kindle email</title>
 </head>
 <body>
+{{ $details := .Details }}
 <p>
     You will receive an article containing a confirmation code.<br/>
-    But first you need to add the email address <code>{{ .Details.From }}</code>
+    But first you need to add the email address <code>{{ $details.SendCredentials.From }}</code>
     to your "Approved Personal Document E-mail List" in your Amazon Content and Devices section.<br/>
     See the <a href="https://www.amazon.com/gp/help/customer/display.html?ie=UTF8&nodeId=200767340">help page</a> for more information.
 </p>
