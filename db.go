@@ -85,6 +85,8 @@ func createTables(c *sql.DB) error {
 		return err
 	}
 
+	/*
+	// We disable these tables for now
 	users := `CREATE TABLE users (
 		id INTEGER PRIMARY KEY ASC,
 		raw TEXT
@@ -109,16 +111,18 @@ func createTables(c *sql.DB) error {
 		return err
 	}
 
+	// table targets holds the details of the local application configuration for the service it represents
 	targets := `create table targets (
 		id INTEGER PRIMARY KEY ASC,
-		output_id INTEGER,
+		service TEXT,
 		data TEXT,
-		flags INT DEFAULT 0,
-		FOREIGN KEY(output_id) REFERENCES outputs(id)
+		flags INT DEFAULT 0
 	);`
 	if _, err := c.Exec(targets); err != nil {
 		return err
 	}
+	*/
+
 	return nil
 }
 
