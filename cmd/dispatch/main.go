@@ -40,7 +40,7 @@ func main() {
 		log.Printf("Error: %s", err)
 	}
 	for _, cont := range all {
-		st, err := feeds.DispatchToKindle(cont.Item.Title, cont.MobiPath, c)
+		st, err := feeds.DispatchToKindle(cont.Item.Title, cont.Path, c)
 		if err != nil {
 			log.Printf("Error: %s", err)
 			continue
