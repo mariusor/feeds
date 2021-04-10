@@ -44,7 +44,7 @@ func genRoutes(dbDsn string) *http.ServeMux {
 		Feeds: allFeeds,
 	}
 	for _, f := range allFeeds {
-		items, err := feeds.GetContentsByFeed(c, f)
+		items, err := feeds.GetContentsByFeedAndType(c, f)
 		if err != nil {
 			panic(err)
 		}
@@ -56,24 +56,11 @@ func genRoutes(dbDsn string) *http.ServeMux {
 		r.HandleFunc(feedPath+"/", a.Handler)
 		for _, c := range items {
 			article := article{Feed: f, Item: c}
-			articlePath := path.Join(feedPath, c.Item.PathSlug())
-			articleHandlers := map[string]http.HandlerFunc{
-				articlePath + ".html": article.Handler,
-				articlePath + ".mobi": article.Handler,
-				articlePath + ".epub": article.Handler,
+			handlerFn := article.Handler
+			if !fileExists(c.Path) {
+				handlerFn = notFoundHandler(fmt.Errorf("%q not found", c.Item.Title))
 			}
-			if !fileExists(c.HTMLPath) {
-				articleHandlers[articlePath+".html"] = notFoundHandler(fmt.Errorf("%q not found", c.Item.Title))
-			}
-			if !fileExists(c.EPubPath) {
-				articleHandlers[articlePath+".epub"] = notFoundHandler(fmt.Errorf("%q not found", c.Item.Title))
-			}
-			if !fileExists(c.MobiPath) {
-				articleHandlers[articlePath+".mobi"] = notFoundHandler(fmt.Errorf("%q not found", c.Item.Title))
-			}
-			for path, handlerFn := range articleHandlers {
-				r.HandleFunc(path, handlerFn)
-			}
+			r.HandleFunc(fmt.Sprintf("%s.%s", path.Join(feedPath, c.Item.PathSlug()), c.Type), handlerFn)
 		}
 	}
 	r.HandleFunc("/", feedsListing.Handler)
@@ -182,9 +169,9 @@ var tplFuncs = func(r *http.Request) template.FuncMap {
 			return template.HTMLAttr(feeds.Slug(s))
 		},
 		"request": func() http.Request { return *r },
-		"hasHtml": func(c feeds.Content) bool { return fileExists(c.HTMLPath) },
-		"hasMobi": func(c feeds.Content) bool { return fileExists(c.MobiPath) },
-		"hasEPub": func(c feeds.Content) bool { return fileExists(c.EPubPath) },
+		"hasHtml": func(c feeds.Content) bool { return fileExists(c.Path) && c.Type == "html" },
+		"hasMobi": func(c feeds.Content) bool { return fileExists(c.Path) && c.Type == "mobi"  },
+		"hasEPub": func(c feeds.Content) bool { return fileExists(c.Path) && c.Type == "epub" },
 	}
 }
 
@@ -216,15 +203,7 @@ type articleListing struct {
 }
 
 func (a article) Handler(w http.ResponseWriter, r *http.Request) {
-	ext := path.Ext(r.URL.Path)
-	path := a.Item.HTMLPath
-	switch ext {
-	case ".mobi":
-		path = a.Item.MobiPath
-	case ".epub":
-		path = a.Item.EPubPath
-	}
-	http.ServeFile(w, r, path)
+	http.ServeFile(w, r, a.Item.Path)
 }
 
 type article struct {

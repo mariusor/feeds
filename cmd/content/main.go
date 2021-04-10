@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"os"
 	"path"
-	"strings"
 	"time"
 
 	"github.com/mariusor/feeds"
@@ -39,11 +38,6 @@ func main() {
 		os.Mkdir(basePath, 0755)
 	}
 
-	htmlBasePath := path.Join(basePath, feeds.HtmlDir)
-	if _, err := os.Stat(htmlBasePath); os.IsNotExist(err) {
-		os.Mkdir(htmlBasePath, 0755)
-	}
-
 	c, err := feeds.DB(basePath)
 	if err != nil {
 		log.Fatal(err)
@@ -58,12 +52,8 @@ func main() {
 	for i := 0; i < len(all); i += chunkSize {
 		for j := i; j < i+chunkSize && j < len(all); j++ {
 			it := all[j]
-			htmlPath := path.Join(htmlBasePath, strings.TrimSpace(it.Feed.Title))
-			if _, err = os.Stat(htmlPath); os.IsNotExist(err) {
-				err = os.Mkdir(htmlPath, 0755)
-			}
 			g.Go(func() error {
-				status, err := feeds.LoadItem(it, c, htmlPath)
+				status, err := feeds.LoadItem(it, c, basePath)
 				if err != nil {
 					log.Printf("Error: %s", err.Error())
 				}

@@ -22,13 +22,11 @@ type Item struct {
 }
 
 type Content struct {
-	ID         int
-	URL        *url.URL
-	HTMLPath   string
-	MobiPath   string
-	EPubPath   string
-	Dispatched bool
-	Item       Item
+	ID      int
+	Path    string
+	Created time.Time
+	Type    string
+	Item    Item
 }
 
 func (i Item) Path(ext string) string {

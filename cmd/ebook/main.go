@@ -63,7 +63,7 @@ func generateEbook(typ, basePath string, cont feeds.Content, overwrite bool) (st
 		}
 	}
 	var buf []byte
-	if buf, err = os.ReadFile(cont.HTMLPath); err != nil {
+	if buf, err = os.ReadFile(cont.Path); err != nil {
 		return "", err
 	}
 
@@ -108,8 +108,8 @@ func main() {
 		log.Fatalf("Error: %s", err)
 	}
 
-	updateFeed := "UPDATE items_contents SET mobi_path = ?, epub_path = ? WHERE id = ?"
-	s, err := c.Prepare(updateFeed)
+	insEbookContent := "INSERT INTO contents (item_id, path, type) VALUES (?, ?, ?)"
+	s, err := c.Prepare(insEbookContent)
 	if err != nil {
 		log.Fatalf("Error: %s", err)
 	}
@@ -120,25 +120,19 @@ func main() {
 		for j := i; j < i+chunkSize && j < len(all); j++ {
 			cont := all[j]
 			g.Go(func() error {
-				log.Printf("File %s\n", path.Base(cont.HTMLPath))
+				log.Printf("File %s\n", path.Base(cont.Path))
 				for _, typ := range validEbookTypes {
 					filePath, err := generateEbook(typ, basePath, cont, true)
 					if err != nil {
 						log.Printf("Unable to generate path %s: %s", filePath, err.Error())
 					}
-					switch typ {
-					case "mobi":
-						cont.MobiPath = filePath
-					case "epub":
-						cont.EPubPath = filePath
+					cont.Path = filePath
+					if _, err = s.Exec(cont.Item.ID, cont.Path, typ); err != nil {
+						log.Printf("Unable to update paths in db: %s", err.Error())
+						return nil
 					}
+					log.Printf("Updated content item [%d]: %s", cont.ID, cont.Item.Title)
 				}
-				if _, err = s.Exec(cont.MobiPath, cont.EPubPath, cont.ID); err != nil {
-					log.Printf("Unable to update paths in db: %s", err.Error())
-					return nil
-				}
-				log.Printf("Updated content items [%d]: %s", cont.ID, cont.Item.Title)
-
 				return nil
 			})
 		}
