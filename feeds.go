@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"log"
 	"net/url"
+	"sort"
 	"time"
 
 	"github.com/SlyMarbo/rss"
@@ -52,6 +53,9 @@ func CheckFeed(f Feed, c *sql.DB) (bool, error) {
 
 		count++
 	}
+	sort.Slice(all, func(i, j int) bool {
+		return all[i].Published.Sub(all[j].Published) < 0
+	})
 	itemIns := `
 INSERT INTO items (url, feed_id, guid, title, published_date, last_loaded, author, feed_index)
 VALUES (?, ?, ?, ?, ?, ?, (select author from feeds where id = ? LIMIT 1), ifnull((select feed_index from items where feed_id = ? order by feed_index desc limit 1),0)+1);
