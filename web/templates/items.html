@@ -7,22 +7,26 @@
 <body>
 <div>
 <a href="/">Back</a><br/>
-Articles:
+{{ if .Items }}
+    Articles:
 <ol>
 {{- $parent := .Feed.Title | sluggify -}}
 {{ range $key, $item := .Items }}
 <li>
     {{ if hasHtml $item }}
-    <a href="/{{ $parent }}/{{ $item.Item.PathSlug }}.html">{{- $item.Item.Title -}}</a>
+    <a href="/{{ $parent }}/{{ $item.PathSlug }}.html">{{- $item.Title -}}</a>
     {{ else }}
-    {{- $item.Item.Title -}}
+    {{- $item.Title -}}
     {{ end }}
-    {{ if not $item.Item.Updated.IsZero }} Last updated {{ $item.Item.Updated -}} {{ end }}<br/>
-    {{ if hasEPub $item }} <a download href="/{{ $parent }}/{{ $item.Item.PathSlug }}.epub">epub</a>{{ end }}
-    {{ if hasMobi $item }} <a download href="/{{ $parent }}/{{ $item.Item.PathSlug }}.mobi">mobi</a>{{ end }}
+    {{ if not $item.Updated.IsZero }} Last updated {{ $item.Updated -}} {{ end }}<br/>
+    {{ if hasEPub $item }} <a download href="/{{ $parent }}/{{ $item.PathSlug }}.epub">epub</a>{{ end }}
+    {{ if hasMobi $item }} <a download href="/{{ $parent }}/{{ $item.PathSlug }}.mobi">mobi</a>{{ end }}
 </li>
 {{ end }}
 </ol>
+{{ else }}
+    <p> Nothing here, please move along.</p>
+{{ end }}
 </div>
 </body>
 </html>

@@ -27,6 +27,11 @@ var notFoundHandler = func(e error) func(w http.ResponseWriter, r *http.Request)
 	}
 }
 
+var validFileTypes = [...]string {
+	"html",
+	"mobi",
+	"epub",
+}
 func genRoutes(dbDsn string) *http.ServeMux {
 	r := http.NewServeMux()
 
@@ -44,7 +49,7 @@ func genRoutes(dbDsn string) *http.ServeMux {
 		Feeds: allFeeds,
 	}
 	for _, f := range allFeeds {
-		items, err := feeds.GetContentsByFeedAndType(c, f, "html")
+		items, err := feeds.GetItemsByFeedAndType(c, f, "html")
 		if err != nil {
 			panic(err)
 		}
@@ -54,13 +59,15 @@ func genRoutes(dbDsn string) *http.ServeMux {
 		}
 		feedPath := "/" + feeds.Slug(f.Title)
 		r.HandleFunc(feedPath+"/", a.Handler)
-		for _, c := range items {
-			article := article{Feed: f, Item: c}
-			handlerFn := article.Handler
-			if !fileExists(c.Path) {
-				handlerFn = notFoundHandler(fmt.Errorf("%q not found", c.Item.Title))
+		for _, it := range items {
+			article := article{Feed: f, Item: it}
+			for _, typ := range validFileTypes {
+				handlerFn := notFoundHandler(fmt.Errorf("%q not found", it.Title))
+				if cont, ok := it.Content[typ]; ok && fileExists(cont.Path) {
+					handlerFn = article.Handler
+				}
+				r.HandleFunc(fmt.Sprintf("%s.%s", path.Join(feedPath, it.PathSlug()), typ), handlerFn)
 			}
-			r.HandleFunc(fmt.Sprintf("%s.%s", path.Join(feedPath, c.Item.PathSlug()), c.Type), handlerFn)
 		}
 	}
 	r.HandleFunc("/", feedsListing.Handler)
@@ -88,29 +95,30 @@ func genRoutes(dbDsn string) *http.ServeMux {
 func myKindleTarget(dbPath string) target {
 	return target{
 		dbPath: dbPath,
-		Target: feeds.Kindle,
+		Target: "kindle",
 		Details: feeds.ServiceMyKindle{
 			SendCredentials: feeds.DefaultMyKindleSender,
 		},
 	}
 }
 
-func pocketTarget(dbPath, curPath string, p *feeds.PocketAuth) target {
+func pocketTarget(dbPath, curPath string, p *feeds.ServicePocket) target {
 	if p.AppName == "" {
 		p.AppName = "FeedSync"
 	}
 	return target{
 		URL:     fmt.Sprintf("http://localhost:3000%s", curPath),
-		Target:  feeds.Pocket,
+		Target:  "pocket",
 		dbPath:  dbPath,
 		Details: p,
 	}
 }
 
 type target struct {
-	Target  feeds.Target
+	Target  string
 	URL     string
 	Details feeds.TargetService
+	User    *feeds.User
 	dbPath  string
 }
 
@@ -121,31 +129,42 @@ func (t target) Handler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer c.Close()
-	if t.Target.Type == "pocket" {
-		var err error
-		p, ok := t.Details.(*feeds.PocketAuth)
+	if t.Target == "pocket" {
+		p, ok := t.Details.(*feeds.ServicePocket)
 		if !ok {
 			errorTpl.Execute(w, fmt.Errorf("invalid Pocket authorization data"))
 			return
 		}
-		if err = p.ObtainAccessToken(); err != nil {
-			if _, err = p.GenerateAuthorizationURL(t.URL); err != nil {
-				errorTpl.Execute(w, err)
-				return
-			}
+		url, tok, err := p.GenerateAuthorizationURL(t.URL)
+		if err != nil {
+			errorTpl.Execute(w, err)
+			return
+		}
+		p.AuthorizeURL = url
+		if authTok, err := p.ObtainAccessToken(tok); err != nil {
+			errorTpl.Execute(w, err)
+			return
 		} else {
-			if p.Authorization == nil {
+			if authTok == nil {
 				errorTpl.Execute(w, fmt.Errorf("invalid Pocket authorization data"))
 				return
 			}
-			_, err = feeds.LoadUserByService(c, p.Authorization.Username, t.Target.Type)
-			if err != nil {
-				errorTpl.Execute(w, fmt.Errorf("unable to save credentials to db: %w", err))
-				return
+			t.User, _ = feeds.LoadUserByService(c, authTok.Username, t.Target)
+			if t.User == nil {
+				t.User = &feeds.User{
+					Services: feeds.Services{ },
+				}
 			}
+			t.User.Services["pocket"] = feeds.Target {
+				Destination: feeds.PocketDestination{
+					AccessToken: authTok.AccessToken,
+					Username:    authTok.Username,
+				},
+			}
+			feeds.SaveUserService(c, *t.User)
 		}
 	}
-	tt, err := tpl(fmt.Sprintf("%s.html", t.Target.Type), r)
+	tt, err := tpl(fmt.Sprintf("%s.html", t.Target), r)
 	if err != nil {
 		errorTpl.Execute(w, err)
 		return
@@ -207,9 +226,16 @@ var tplFuncs = func(r *http.Request) template.FuncMap {
 			return template.HTMLAttr(feeds.Slug(s))
 		},
 		"request": func() http.Request { return *r },
-		"hasHtml": func(c feeds.Content) bool { return fileExists(c.Path) && c.Type == "html" },
-		"hasMobi": func(c feeds.Content) bool { return fileExists(c.Path) && c.Type == "mobi"  },
-		"hasEPub": func(c feeds.Content) bool { return fileExists(c.Path) && c.Type == "epub" },
+		"hasHtml": has("html"),
+		"hasMobi": has("mobi"),
+		"hasEPub": has("epub"),
+	}
+}
+
+func has(typ string) func(i feeds.Item) bool {
+	return func(i feeds.Item) bool {
+		p, ok := i.Content[typ]
+		return ok && fileExists(p.Path)
 	}
 }
 
@@ -237,16 +263,22 @@ func (a articleListing) Handler(w http.ResponseWriter, r *http.Request) {
 
 type articleListing struct {
 	Feed  feeds.Feed
-	Items []feeds.Content
+	Items []feeds.Item
 }
 
 func (a article) Handler(w http.ResponseWriter, r *http.Request) {
-	http.ServeFile(w, r, a.Item.Path)
+	ext := strings.TrimLeft(path.Ext(r.URL.Path), ".")
+	cont, ok := a.Item.Content[ext]
+	if !ok {
+		notFoundHandler(fmt.Errorf("%s was not found", path.Base(r.URL.Path)))
+		return
+	}
+	http.ServeFile(w, r, cont.Path)
 }
 
 type article struct {
 	Feed feeds.Feed
-	Item feeds.Content
+	Item feeds.Item
 }
 
 type targets struct {

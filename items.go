@@ -19,6 +19,7 @@ type Item struct {
 	Updated   time.Time
 	Status    int
 	Feed      Feed
+	Content   map[string]Content
 }
 
 type Content struct {
@@ -26,7 +27,6 @@ type Content struct {
 	Path    string
 	Created time.Time
 	Type    string
-	Item    Item
 }
 
 func (i Item) Path(ext string) string {

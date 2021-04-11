@@ -80,21 +80,23 @@ func createTables(c *sql.DB) error {
 		item_id INTEGER,
 		path TEXT,
 		type TEXT,
-		FOREIGN KEY(item_id) REFERENCES items(id)
+		FOREIGN KEY(item_id) REFERENCES items(id),
+		constraint contents_uindex unique (item_id, type)
 	);`
 	if _, err := c.Exec(contents); err != nil {
 		return err
 	}
 
-	/*
-	// We disable these tables for now
 	users := `CREATE TABLE users (
 		id INTEGER PRIMARY KEY ASC,
-		raw TEXT
+		raw TEXT,
+		flags INTEGER
 	);`
 	if _, err := c.Exec(users); err != nil {
 		return err
 	}
+	/*
+	// We disable these tables for now
 	insertUsers := `INSERT INTO users (id) VALUES(?);`
 	if _, err := c.Exec(insertUsers, 1); err != nil {
 		return err
@@ -277,72 +279,156 @@ WHERE items.last_loaded IS NULL group by items.id order by items.feed_index asc`
 	return all, nil
 }
 
-func GetNonDispatchedItemContents(c *sql.DB) ([]Content, error) {
-	sql := "SELECT contents.id, items.id, feeds.title, items.title, items.author, path, type " +
-		"FROM items_contents " +
-		"INNER JOIN items ON items.id = items_contents.item_id " +
-		"INNER JOIN feeds ON feeds.id = items.feed_id WHERE items_contents.dispatched != 1"
+func GetNonDispatchedItemContents(c *sql.DB) ([]Item, error) {
+	sql := `SELECT contents.id, items.id, feeds.title, items.title, items.author, path, type 
+		FROM contents 
+		INNER JOIN items ON items.id = contents.item_id 
+		INNER JOIN feeds ON feeds.id = items.feed_id WHERE contents.dispatched != 1;`
 
 	s, err := c.Query(sql)
 	defer s.Close()
 	if err != nil {
 		return nil, err
 	}
-	all := make([]Content, 0)
+	all := make([]Item, 0)
 	for s.Next() {
-		cont := Content{}
-		s.Scan(&cont.ID, &cont.Item.ID, &cont.Item.Feed.Title, &cont.Item.Title, &cont.Item.Author, &cont.Path, &cont.Type)
+		var (
+			cont   = Item{}
+			contID, contType, contPath string
+		)
+		s.Scan(&cont.ID, &contID, &cont.Feed.Title, &cont.Title, &cont.Author, &contPath, &contType)
 		all = append(all, cont)
 	}
 	return all, nil
 }
 
-func GetContentsForEbook(c *sql.DB) ([]Content, error) {
-	sql := `
-SELECT items.id, items.feed_index, feeds.title, items.title, items.author, html.path, html.type FROM items
+func GetContentsForEbook(c *sql.DB) ([]Item, error) {
+	sql := `SELECT items.id, items.feed_index, feeds.title, items.title, items.author FROM items
     INNER JOIN feeds ON feeds.id = items.feed_id
     INNER JOIN contents AS html ON items.id = html.item_id AND html.type = 'html'
-    LEFT JOIN contents AS ebook ON items.id = ebook.item_id AND ebook.type in ('mobi', 'epub')
-WHERE ebook.path IS NULL;`
+    LEFT JOIN contents AS epub ON items.id = epub.item_id AND epub.type = 'epub'
+    LEFT JOIN contents AS mobi ON items.id = mobi.item_id AND mobi.type = 'mobi'
+WHERE epub.path IS NULL OR mobi.path IS NULL; `
 
-	s, err := c.Query(sql)
+	s1, err := c.Query(sql)
 	if err != nil {
 		return nil, err
 	}
-	all := make([]Content, 0)
-	for s.Next() {
-		cont := Content{}
-		s.Scan(&cont.Item.ID, &cont.Item.FeedIndex, &cont.Item.Feed.Title, &cont.Item.Title, &cont.Item.Author, &cont.Path, &cont.Type)
-		all = append(all, cont)
+	all := make(map[int]Item)
+	itemIds := make([]string, 0)
+	for s1.Next() {
+		var (
+			id, feedIndex                                int
+			feedTitle, title, author string
+			cont                                         Item
+			ok                                           bool
+		)
+		s1.Scan(&id, &feedIndex, &feedTitle, &title, &author)
+		if cont, ok = all[id]; !ok || cont.ID != id {
+			cont = Item{
+				ID: id, 
+				FeedIndex: feedIndex,
+				Title: title,
+				Author: author,
+				Feed: Feed{Title: feedTitle},
+			}
+		}
+		itemIds = append(itemIds, fmt.Sprintf("%d", id))
+		all[cont.ID] = cont
+	}
+	contWhere := strings.Join(itemIds, ", ")
+	selCont := fmt.Sprintf(`SELECT id, item_id, path, type from contents where item_id in (%s) and type != 'raw';`, contWhere)
+	s2, err := c.Query(selCont)
+	if err != nil {
+		return nil, err
+	}
+	for s2.Next() {
+		var (
+			id, itemId int
+			path, typ  string
+			ok         bool
+		)
+		s2.Scan(&id, &itemId, &path, &typ)
+		item, ok := all[itemId]
+		if !ok {
+			// TODO(marius) missing item, error
+		}
+		if item.Content == nil {
+			item.Content = make(map[string]Content)
+		}
+		item.Content[typ] = Content{ID: id, Path: path, Type: typ}
+		all[itemId] = item
 	}
 
-	return all, nil
+	result := make([]Item, 0)
+	for _, it := range all {
+		result = append(result, it)
+	}
+	return result, nil
 }
 
-func GetContentsByFeedAndType(c *sql.DB, f Feed, ext string) ([]Content, error) {
-	sql := `SELECT contents.id, items.id, feeds.title, items.title, items.author, contents.path, contents.type FROM contents 
-INNER JOIN items ON items.id = contents.item_id 
+func GetItemsByFeedAndType(c *sql.DB, f Feed, ext string) ([]Item, error) {
+	sql := `SELECT items.id, feeds.title, items.title, items.author, items.feed_index FROM items 
 INNER JOIN feeds ON feeds.id = items.feed_id 
-WHERE items.feed_id = ? and contents.type = ? GROUP BY items.title ORDER BY items.feed_index ASC;`
+WHERE items.feed_id = ? ORDER BY items.feed_index ASC;`
 
-	s, err := c.Query(sql, f.ID, ext)
+	s, err := c.Query(sql, f.ID)
 	if err != nil {
 		return nil, err
 	}
-	all := make([]Content, 0)
+	all := make([]Item, 0)
+	itemIds := make([]string, 0)
 	for s.Next() {
-		cont := Content{}
-		s.Scan(&cont.ID, &cont.Item.ID, &cont.Item.Feed.Title, &cont.Item.Title, &cont.Item.Author, &cont.Path, &cont.Type)
-		all = append(all, cont)
+		var (
+			id, feedIndex            int
+			feedTitle, title, author string
+		)
+		s.Scan(&id, &feedTitle, &title, &author, &feedIndex)
+		it := Item{
+			ID: id,
+			FeedIndex: feedIndex,
+			Title: title,
+			Author: author,
+			Feed: Feed{Title: feedTitle},
+		}
+		itemIds = append(itemIds, fmt.Sprintf("%d", id))
+		all = append(all, it)
 	}
 
+	contWhere := strings.Join(itemIds, ", ")
+	selCont := fmt.Sprintf(`SELECT id, item_id, path, type from contents where item_id in (%s);`, contWhere)
+	s2, err := c.Query(selCont)
+	if err != nil {
+		return nil, err
+	}
+	for s2.Next() {
+		var (
+			inx, id, itemId int
+			path, typ  string
+			item Item
+		)
+		s2.Scan(&id, &itemId, &path, &typ)
+		for i, it := range all {
+			if it.ID == itemId {
+				item = it
+				inx = i
+			}
+		}
+		if item.Content == nil {
+			item.Content = make(map[string]Content)
+		}
+		item.Content[typ] = Content{ID: id, Path: path, Type: typ}
+		all[inx] = item
+	}
 	return all, nil
 }
+
+type Services map[string]TargetDestination
 
 type User struct {
 	ID       int
 	Flags    int
-	Services map[string]TargetService
+	Services Services
 }
 
 func LoadUserByService(c *sql.DB, username, service string) (*User, error) {

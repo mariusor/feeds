@@ -30,7 +30,7 @@ func validEbookType(typ string) bool {
 	return false
 }
 
-func generateEbook(typ, basePath string, cont feeds.Content, overwrite bool) (string, error) {
+func generateEbook(typ, basePath string, item feeds.Item, overwrite bool) (string, error) {
 	if !validEbookType(typ) {
 		return "", fmt.Errorf("invalid ebook type %s, valid ones are %v", typ, validEbookTypes)
 	}
@@ -47,9 +47,9 @@ func generateEbook(typ, basePath string, cont feeds.Content, overwrite bool) (st
 	ebookPath := path.Join(
 		basePath,
 		feeds.OutputDir,
-		strings.TrimSpace(cont.Item.Feed.Title),
+		strings.TrimSpace(item.Feed.Title),
 		typ,
-		cont.Item.Path(typ),
+		item.Path(typ),
 	)
 	if !path.IsAbs(ebookPath) {
 		if ebookPath, err = filepath.Abs(ebookPath); err != nil {
@@ -62,15 +62,20 @@ func generateEbook(typ, basePath string, cont feeds.Content, overwrite bool) (st
 			return "", err
 		}
 	}
+
+	html, ok := item.Content["html"]
+	if !ok {
+		return "", fmt.Errorf("invalid html for item %v", item)
+	}
 	var buf []byte
-	if buf, err = os.ReadFile(cont.Path); err != nil {
+	if buf, err = os.ReadFile(html.Path); err != nil {
 		return "", err
 	}
 
 	if _, err := os.Stat(ebookPath); !overwrite && !(err != nil && os.IsNotExist(err)) {
 		return ebookPath, nil
 	}
-	if err = ebookFn(buf, strings.TrimSpace(cont.Item.Title), strings.TrimSpace(cont.Item.Author), ebookPath); err != nil {
+	if err = ebookFn(buf, strings.TrimSpace(item.Title), strings.TrimSpace(item.Author), ebookPath); err != nil {
 		return "", err
 	}
 	if _, err := os.Stat(ebookPath); err != nil {
@@ -118,20 +123,24 @@ func main() {
 	g, _ := errgroup.WithContext(context.Background())
 	for i := 0; i < len(all); i += chunkSize {
 		for j := i; j < i+chunkSize && j < len(all); j++ {
-			cont := all[j]
+			item  := all[j]
 			g.Go(func() error {
+				cont, ok := item.Content["html"]
+				if !ok {
+					return fmt.Errorf("invalid html path for item %v", item)
+				}
 				log.Printf("File %s\n", path.Base(cont.Path))
 				for _, typ := range validEbookTypes {
-					filePath, err := generateEbook(typ, basePath, cont, true)
+					filePath, err := generateEbook(typ, basePath, item, true)
 					if err != nil {
 						log.Printf("Unable to generate path %s: %s", filePath, err.Error())
 					}
 					cont.Path = filePath
-					if _, err = s.Exec(cont.Item.ID, cont.Path, typ); err != nil {
+					if _, err = s.Exec(cont.ID, cont.Path, typ); err != nil {
 						log.Printf("Unable to update paths in db: %s", err.Error())
 						return nil
 					}
-					log.Printf("Updated content item [%d]: %s", cont.ID, cont.Item.Title)
+					log.Printf("Updated content item [%d]: %s", cont.ID, item.Title)
 				}
 				return nil
 			})
