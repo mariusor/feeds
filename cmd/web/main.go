@@ -71,19 +71,19 @@ func genRoutes(dbDsn string) *http.ServeMux {
 		}
 	}
 	r.HandleFunc("/", feedsListing.Handler)
-	r.HandleFunc("/login/", (targets{Targets: feeds.ValidTargets}).Handler)
+	r.HandleFunc("/register/", (targets{Targets: feeds.ValidTargets}).Handler)
 	for typ := range feeds.ValidTargets {
 		service := feeds.Slug(typ)
 		switch service {
 		case "mykindle":
-			r.HandleFunc(path.Join("/register", service), myKindleTarget(dbDsn).Handler)
+			r.HandleFunc(path.Join("/register", service), myKindleTarget(dbDsn, ss).Handler)
 		case "pocket":
 			var handlerFn http.HandlerFunc
 			curPath := path.Join("/register", service)
 			if p, err := feeds.PocketInit(); err != nil {
 				handlerFn = notFoundHandler(fmt.Errorf("Pocket is not available: %w", err))
 			} else {
-				handlerFn = pocketTarget(dbDsn, curPath, p).Handler
+				handlerFn = pocketTarget(dbDsn, curPath,ss, p).Handler
 			}
 			r.HandleFunc(curPath, handlerFn)
 		}
@@ -286,7 +286,7 @@ type targets struct {
 }
 
 func (t targets) Handler(w http.ResponseWriter, r *http.Request) {
-	tt, err := tpl("login.html", r)
+	tt, err := tpl("register.html", r)
 	if err != nil {
 		errorTpl.Execute(w, err)
 		return

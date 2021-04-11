@@ -7,7 +7,7 @@
 <body>
 <dl>
 {{ range $typ, $desc := .Targets }}
-    <dt><a href="/login/{{ sluggify $typ }}">{{$typ}}</a></dt>
+    <dt><a href="/register/{{ sluggify $typ }}">{{$typ}}</a></dt>
     <dd>{{$desc}}</dd>
 {{ else }}
     <dt>No services available at the moment.</dt>
