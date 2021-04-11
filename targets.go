@@ -1,10 +1,17 @@
 package feeds
 
+import "github.com/motemen/go-pocket/auth"
+
 type Target struct {
-	ID int
-	Type string
-	Data []byte
-	Flags int
+	Service     TargetService
+	Destination TargetDestination
+}
+
+type PocketDestination struct {
+	Target       *ServicePocket
+	RequestToken *auth.RequestToken `json:"-"`
+	AccessToken  string `json:"access_token"`
+	Username     string `json:"username"`
 }
 
 var ValidTargets = map[string]string{
@@ -13,16 +20,10 @@ var ValidTargets = map[string]string{
 	//"reMarkable": "Syncs to your reMarkable cloud account",
 }
 
+type TargetDestination interface { }
+
 type TargetService interface {
 	Label() string
-}
-
-type ServicePocket struct {
-	ConsumerKey string
-}
-
-func (p ServicePocket) Label() string {
-	return "Pocket"
 }
 
 type ServiceMyKindle struct {

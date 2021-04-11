@@ -5,49 +5,38 @@ import (
 	"github.com/motemen/go-pocket/auth"
 )
 
-var Pocket = Target{
-	ID:    2,
-	Type:  "pocket",
-	Flags: 0,
-}
-
 var PocketConsumerKey = ""
 
-type PocketAuth struct {
+type ServicePocket struct {
 	AppName       string
-	RequestToken  *auth.RequestToken
-	Authorization *auth.Authorization
 	AuthorizeURL  string
 	ConsumerKey   string
 }
 
-func(p *PocketAuth) Label()string {
-	return "Pocket(deprecated)"
+func(p *ServicePocket) Label()string {
+	return "Pocket"
 }
 
-func PocketInit() (*PocketAuth, error) {
+func PocketInit() (*ServicePocket, error) {
 	if PocketConsumerKey == "" {
 		return nil, fmt.Errorf("no Pocket application key has been set up")
 	}
-	return &PocketAuth{ConsumerKey: PocketConsumerKey}, nil
+	return &ServicePocket{ConsumerKey: PocketConsumerKey}, nil
 }
 
-func (p *PocketAuth) GenerateAuthorizationURL(redirectURL string) (string, error) {
-	var err error
-
-	if p.RequestToken, err = auth.ObtainRequestToken(p.ConsumerKey, redirectURL); err != nil {
-		return "", err
+func (p *ServicePocket) GenerateAuthorizationURL(redirectURL string) (string, *auth.RequestToken, error) {
+	requestToken, err := auth.ObtainRequestToken(p.ConsumerKey, redirectURL)
+	if err != nil {
+		return "", nil, err
 	}
 
-	p.AuthorizeURL = auth.GenerateAuthorizationURL(p.RequestToken, redirectURL)
-	return p.AuthorizeURL, nil
+	p.AuthorizeURL = auth.GenerateAuthorizationURL(requestToken, redirectURL)
+	return p.AuthorizeURL,requestToken, nil
 }
 
-func (p *PocketAuth) ObtainAccessToken() error {
-	var err error
-	if p.RequestToken == nil {
-		return fmt.Errorf("request has not been authorized by user")
+func (p *ServicePocket) ObtainAccessToken(reqToken *auth.RequestToken) (*auth.Authorization, error) {
+	if reqToken == nil {
+		return nil, fmt.Errorf("request has not been authorized by user")
 	}
-	p.Authorization, err = auth.ObtainAccessToken(p.ConsumerKey, p.RequestToken)
-	return err
+	return auth.ObtainAccessToken(p.ConsumerKey, reqToken)
 }

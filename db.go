@@ -453,3 +453,7 @@ func LoadUserByService(c *sql.DB, username, service string) (*User, error) {
 	}
 	return &all[0], nil
 }
+
+func SaveUserService(c *sql.DB, u User) error {
+	return nil
+}

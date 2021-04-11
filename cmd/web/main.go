@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/gob"
 	"flag"
 	"fmt"
 	"html/template"
@@ -11,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/dghubble/sessions"
 	"github.com/mariusor/feeds"
 )
 
@@ -32,7 +34,8 @@ var validFileTypes = [...]string {
 	"mobi",
 	"epub",
 }
-func genRoutes(dbDsn string) *http.ServeMux {
+
+func genRoutes(dbDsn string, ss *sessions.CookieStore) *http.ServeMux {
 	r := http.NewServeMux()
 
 	c, err := feeds.DB(dbDsn)
@@ -92,8 +95,9 @@ func genRoutes(dbDsn string) *http.ServeMux {
 	return r
 }
 
-func myKindleTarget(dbPath string) target {
+func myKindleTarget(dbPath string, ss sessions.Store) target {
 	return target{
+		ss: ss,
 		dbPath: dbPath,
 		Target: "kindle",
 		Details: feeds.ServiceMyKindle{
@@ -102,11 +106,12 @@ func myKindleTarget(dbPath string) target {
 	}
 }
 
-func pocketTarget(dbPath, curPath string, p *feeds.ServicePocket) target {
+func pocketTarget(dbPath, curPath string, ss sessions.Store, p *feeds.ServicePocket) target {
 	if p.AppName == "" {
 		p.AppName = "FeedSync"
 	}
 	return target{
+		ss: ss,
 		URL:     fmt.Sprintf("http://localhost:3000%s", curPath),
 		Target:  "pocket",
 		dbPath:  dbPath,
@@ -120,6 +125,7 @@ type target struct {
 	Details feeds.TargetService
 	User    *feeds.User
 	dbPath  string
+	ss      sessions.Store
 }
 
 func (t target) Handler(w http.ResponseWriter, r *http.Request) {
@@ -128,45 +134,53 @@ func (t target) Handler(w http.ResponseWriter, r *http.Request) {
 		errorTpl.Execute(w, fmt.Errorf("invalid Pocket authorization data"))
 		return
 	}
+	s := initSession(t.ss, r)
 	defer c.Close()
 	if t.Target == "pocket" {
+		pD := getPocketSession(s)
 		p, ok := t.Details.(*feeds.ServicePocket)
 		if !ok {
 			errorTpl.Execute(w, fmt.Errorf("invalid Pocket authorization data"))
 			return
 		}
-		url, tok, err := p.GenerateAuthorizationURL(t.URL)
-		if err != nil {
-			errorTpl.Execute(w, err)
-			return
+		if pD.Target == nil {
+			pD.Target = p
 		}
-		p.AuthorizeURL = url
-		if authTok, err := p.ObtainAccessToken(tok); err != nil {
-			errorTpl.Execute(w, err)
-			return
-		} else {
+		if pD.RequestToken == nil {
+			var err error
+			if p.AuthorizeURL, pD.RequestToken, err = p.GenerateAuthorizationURL(t.URL); err != nil {
+				errorTpl.Execute(w, err)
+				return
+			}
+		}
+		if authTok, err := p.ObtainAccessToken(pD.RequestToken); err == nil {
 			if authTok == nil {
 				errorTpl.Execute(w, fmt.Errorf("invalid Pocket authorization data"))
 				return
 			}
-			t.User, _ = feeds.LoadUserByService(c, authTok.Username, t.Target)
-			if t.User == nil {
-				t.User = &feeds.User{
-					Services: feeds.Services{ },
-				}
-			}
-			t.User.Services["pocket"] = feeds.Target {
-				Destination: feeds.PocketDestination{
-					AccessToken: authTok.AccessToken,
-					Username:    authTok.Username,
-				},
-			}
-			feeds.SaveUserService(c, *t.User)
+			pD.Username = authTok.Username
+			pD.AccessToken = authTok.AccessToken
 		}
+		t.User, _ = feeds.LoadUserByService(c, pD.Username, t.Target)
+		if t.User == nil {
+			t.User = &feeds.User{
+				Services: feeds.Services{},
+			}
+		}
+		t.User.Services["pocket"] = feeds.PocketDestination{
+			AccessToken: pD.AccessToken,
+			Username:    pD.Username,
+		}
+	feeds.SaveUserService(c, *t.User)
+	s.Values["pocket"] = pD
 	}
 	tt, err := tpl(fmt.Sprintf("%s.html", t.Target), r)
 	if err != nil {
 		errorTpl.Execute(w, err)
+		return
+	}
+	if err = s.Save(w); err != nil {
+		errorTpl.Execute(w, fmt.Errorf("unable to save session: %w", err))
 		return
 	}
 	tt.Execute(w, t)
@@ -182,21 +196,27 @@ func main() {
 		os.Mkdir(basePath, 0755)
 	}
 
-	r := genRoutes(basePath)
+	keys := [][]byte{
+		{0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8, 0x9, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16},
+		{0x2, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8, 0x9, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x11},
+	}
+	ss := sessions.NewCookieStore(keys...)
+	ss.Config.Domain = "localhost"
+	r := genRoutes(basePath, ss)
 
 	ticker := time.NewTicker(30 * time.Second)
 	quit := make(chan struct{})
-	go func() {
+	go func(s *sessions.CookieStore) {
 		for {
 			select {
 			case <-ticker.C:
-				r = genRoutes(basePath)
+				r = genRoutes(basePath, s)
 			case <-quit:
 				ticker.Stop()
 				return
 			}
 		}
-	}()
+	}(ss)
 
 	listenDomain := "127.0.0.1"
 	log.Fatal(http.ListenAndServe(listenDomain+":3000", r))
@@ -329,4 +349,24 @@ func fmtDuration(d time.Duration) template.HTML {
 		return template.HTML(unit)
 	}
 	return template.HTML(fmt.Sprintf("%.1f times per %s", times, unit))
+}
+
+var sessionName = "_s"
+func initSession(ss sessions.Store, r *http.Request) *sessions.Session {
+	gob.Register(feeds.PocketDestination{})
+	s, err := ss.Get(r, sessionName)
+	if err != nil {
+		s = sessions.NewSession(ss, sessionName)
+		s.Config = ss.(*sessions.CookieStore).Config
+	}
+	return s
+}
+
+func getPocketSession(s *sessions.Session) feeds.PocketDestination {
+	if pocket, ok := s.Values["pocket"]; ok {
+		if p, ok := pocket.(feeds.PocketDestination); ok {
+			return p
+		}
+	}
+	return feeds.PocketDestination{}
 }

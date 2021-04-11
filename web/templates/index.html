@@ -6,7 +6,15 @@
 </head>
 <body>
 <div>
-Tracked feeds:
+<nav>
+    Register a device:
+    <ul>
+        <li><a href="/register/pocket">Pocket</a></li>
+        <li><a href="/register/mykindle">myKindle</a></li>
+    </ul>
+
+</nav>
+<div> Tracked feeds: </div>
 <ol>
 {{ range $key, $feed:=.Feeds }}
 <li>

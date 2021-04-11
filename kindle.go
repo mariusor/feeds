@@ -19,12 +19,6 @@ var DefaultMyKindleSender = SMTPCreds{
 	Password: "",
 }
 
-var Kindle = Target{
-	ID:    1,
-	Type:  "kindle",
-	Flags: 0,
-}
-
 type SMTPCreds struct {
 	Server   string `json:"server"`
 	Port     string `json:"port"`

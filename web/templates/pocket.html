@@ -6,9 +6,10 @@
 </head>
 <body>
 <main>
-{{ if .Details.Authorization }}
-    {{ $auth := .Details.Authorization }}
+{{ if .User }}
+{{ range $key, $auth := .User.Services }}
     <p>Name: {{ $auth.Username }}</p>
+{{ end }}
 {{ else }}
     <p>After successfully authorizing the "{{ .Details.AppName }}" application you will receive a document with a code to confirm your subscription.</p>
     <a href="{{.Details.AuthorizeURL}}">Authorize</a>
