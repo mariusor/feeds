@@ -12,7 +12,7 @@
 {{ end }}
 {{ else }}
     <p>After successfully authorizing the "{{ .Details.AppName }}" application you will receive a document with a code to confirm your subscription.</p>
-    <a href="{{.Details.AuthorizeURL}}">Authorize</a>
+    {{ if gt (len .Details.AuthorizeURL) 0 }}<a href="{{.Details.AuthorizeURL}}">Authorize</a>{{ end }}
 {{ end }}
 </main>
 </body>
