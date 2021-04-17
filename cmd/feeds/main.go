@@ -37,6 +37,9 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	if len(all) == 0 {
+		log.Printf("Nothing to do, exiting.")
+	}
 
 	g, _ := errgroup.WithContext(context.Background())
 	for i := 0; i < len(all); i += chunkSize {

@@ -112,6 +112,9 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error: %s", err)
 	}
+	if len(all) == 0 {
+		log.Printf("Nothing to do, exiting.")
+	}
 
 	insEbookContent := "INSERT INTO contents (item_id, path, type) VALUES (?, ?, ?)"
 	s, err := c.Prepare(insEbookContent)
