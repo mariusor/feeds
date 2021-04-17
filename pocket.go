@@ -9,7 +9,6 @@ var PocketConsumerKey = ""
 
 type ServicePocket struct {
 	AppName       string
-	AuthorizeURL  string
 	ConsumerKey   string
 }
 
@@ -22,16 +21,6 @@ func PocketInit() (*ServicePocket, error) {
 		return nil, fmt.Errorf("no Pocket application key has been set up")
 	}
 	return &ServicePocket{ConsumerKey: PocketConsumerKey}, nil
-}
-
-func (p *ServicePocket) GenerateAuthorizationURL(redirectURL string) (string, *auth.RequestToken, error) {
-	requestToken, err := auth.ObtainRequestToken(p.ConsumerKey, redirectURL)
-	if err != nil {
-		return "", nil, err
-	}
-
-	p.AuthorizeURL = auth.GenerateAuthorizationURL(requestToken, redirectURL)
-	return p.AuthorizeURL,requestToken, nil
 }
 
 func (p *ServicePocket) ObtainAccessToken(reqToken *auth.RequestToken) (*auth.Authorization, error) {

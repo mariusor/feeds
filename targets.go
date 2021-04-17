@@ -8,8 +8,10 @@ type Target struct {
 }
 
 type PocketDestination struct {
-	Target       *ServicePocket
+	Service      *ServicePocket
+	Step         int
 	RequestToken *auth.RequestToken `json:"-"`
+	AuthorizeURL string
 	AccessToken  string `json:"access_token"`
 	Username     string `json:"username"`
 }

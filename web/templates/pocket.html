@@ -7,12 +7,15 @@
 <body>
 <main>
 {{ if .User }}
-{{ range $key, $auth := .User.Services }}
+{{ $user := .User }}
+{{ range $key, $auth := $user.Services }}
     <p>Name: {{ $auth.Username }}</p>
 {{ end }}
 {{ else }}
-    <p>After successfully authorizing the "{{ .Details.AppName }}" application you will receive a document with a code to confirm your subscription.</p>
-    {{ if gt (len .Details.AuthorizeURL) 0 }}<a href="{{.Details.AuthorizeURL}}">Authorize</a>{{ end }}
+{{ $destination := .Destination }}
+{{ $service := .Service }}
+    <p>After successfully authorizing the "{{ $service.AppName }}" application you will receive a document with a code to confirm your subscription.</p>
+    {{ if gt (len $destination.AuthorizeURL) 0 }}<a href="{{ $destination.AuthorizeURL}}">Authorize</a>{{ end }}
 {{ end }}
 </main>
 </body>

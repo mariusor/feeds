@@ -4,6 +4,7 @@ import (
 	"encoding/gob"
 	"flag"
 	"fmt"
+	"github.com/motemen/go-pocket/auth"
 	"html/template"
 	"log"
 	"net/http"
@@ -100,7 +101,7 @@ func myKindleTarget(dbPath string, ss sessions.Store) target {
 		ss: ss,
 		dbPath: dbPath,
 		Target: "kindle",
-		Details: feeds.ServiceMyKindle{
+		Service: feeds.ServiceMyKindle{
 			SendCredentials: feeds.DefaultMyKindleSender,
 		},
 	}
@@ -111,23 +112,31 @@ func pocketTarget(dbPath, curPath string, ss sessions.Store, p *feeds.ServicePoc
 		p.AppName = "FeedSync"
 	}
 	return target{
-		ss: ss,
+		ss:      ss,
 		URL:     fmt.Sprintf("http://localhost:3000%s", curPath),
 		Target:  "pocket",
 		dbPath:  dbPath,
-		Details: p,
+		Service: p,
 	}
 }
 
 type target struct {
-	Target  string
-	URL     string
-	Details feeds.TargetService
-	User    *feeds.User
-	dbPath  string
-	ss      sessions.Store
+	Target      string
+	URL         string
+	Service     feeds.TargetService
+	User        *feeds.User
+	Destination feeds.TargetDestination
+	dbPath      string
+	ss          sessions.Store
 }
+const (
+	PocketAuthStepTokenGenerated = 1 << iota
+	PocketAuthStepAuthLinkGenerated
+	PocketAuthStepAuthorized
 
+	PocketAuthDisabled           = -1
+	PocketAuthNotStarted         = 0
+)
 func (t target) Handler(w http.ResponseWriter, r *http.Request) {
 	c, err := feeds.DB(t.dbPath)
 	if err != nil {
@@ -137,42 +146,70 @@ func (t target) Handler(w http.ResponseWriter, r *http.Request) {
 	s := initSession(t.ss, r)
 	defer c.Close()
 	if t.Target == "pocket" {
-		pD := getPocketSession(s)
-		p, ok := t.Details.(*feeds.ServicePocket)
-		if !ok {
-			errorTpl.Execute(w, fmt.Errorf("invalid Pocket authorization data"))
+		pocket := getPocketSession(s)
+		switch pocket.Step {
+		case PocketAuthDisabled:
+			errorTpl.Execute(w, fmt.Errorf("Pocket service it out of order"))
 			return
-		}
-		if pD.Target == nil {
-			pD.Target = p
-		}
-		if pD.RequestToken == nil {
-			var err error
-			if p.AuthorizeURL, pD.RequestToken, err = p.GenerateAuthorizationURL(t.URL); err != nil {
-				errorTpl.Execute(w, err)
-				return
+		case PocketAuthNotStarted:
+			if service, ok := t.Service.(*feeds.ServicePocket); ok && pocket.Service == nil {
+				pocket.Service = service
+			}
+			if pocket.RequestToken == nil {
+				var err error
+				requestToken, err := auth.ObtainRequestToken(pocket.Service.ConsumerKey, t.URL)
+				if err != nil {
+					errorTpl.Execute(w, fmt.Errorf("invalid Pocket authorization data"))
+					return
+				}
+				pocket.RequestToken = requestToken
+				pocket.Step = PocketAuthStepTokenGenerated
+			}
+			fallthrough
+		case PocketAuthStepTokenGenerated:
+			if pocket.AuthorizeURL == "" && pocket.RequestToken != nil {
+				pocket.AuthorizeURL = auth.GenerateAuthorizationURL(pocket.RequestToken, t.URL)
+			}
+			if pocket.AuthorizeURL != "" {
+				pocket.Step = PocketAuthStepAuthLinkGenerated
+			}
+		case PocketAuthStepAuthLinkGenerated:
+			if pocket.AccessToken == "" && pocket.RequestToken != nil {
+				if authTok, err := pocket.Service.ObtainAccessToken(pocket.RequestToken); err == nil {
+					pocket.RequestToken = nil
+					pocket.Username = authTok.Username
+					pocket.AccessToken = authTok.AccessToken
+
+					pocket.Step = PocketAuthStepAuthorized
+
+					feeds.SaveUserService(c, *t.User)
+				} else {
+					if strings.Contains(err.Error(), "429") {
+						pocket.Step = PocketAuthDisabled
+					}
+					if strings.Contains(err.Error(), "user") {
+						pocket.Step = PocketAuthStepTokenGenerated
+					}
+				}
+			}
+		case PocketAuthStepAuthorized:
+			if pocket.AccessToken != "" {
+				t.User = &feeds.User{
+					Services: feeds.Services{
+						"pocket": feeds.PocketDestination{AccessToken: pocket.AccessToken, Username: pocket.Username},
+					},
+				}
+				/*
+					if t.User, err = feeds.LoadUserByService(c, pocket.Username, t.Target); err != nil {
+						errorTpl.Execute(w, fmt.Errorf("unable to load user data from the database: %w", err))
+						return
+					}
+				*/
 			}
 		}
-		if authTok, err := p.ObtainAccessToken(pD.RequestToken); err == nil {
-			if authTok == nil {
-				errorTpl.Execute(w, fmt.Errorf("invalid Pocket authorization data"))
-				return
-			}
-			pD.Username = authTok.Username
-			pD.AccessToken = authTok.AccessToken
-		}
-		t.User, _ = feeds.LoadUserByService(c, pD.Username, t.Target)
-		if t.User == nil {
-			t.User = &feeds.User{
-				Services: feeds.Services{},
-			}
-		}
-		t.User.Services["pocket"] = feeds.PocketDestination{
-			AccessToken: pD.AccessToken,
-			Username:    pD.Username,
-		}
-	feeds.SaveUserService(c, *t.User)
-	s.Values["pocket"] = pD
+
+		s.Values["pocket"] = pocket
+		t.Destination = pocket
 	}
 	tt, err := tpl(fmt.Sprintf("%s.html", t.Target), r)
 	if err != nil {
