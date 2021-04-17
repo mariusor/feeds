@@ -253,9 +253,10 @@ func GetFeeds(c *sql.DB) ([]Feed, error) {
 
 func GetNonFetchedItems(c *sql.DB) ([]Item, error) {
 	sql := `
-SELECT items.id, items.feed_index, feeds.title as feed_title, items.title as title, items.url FROM items 
-    INNER JOIN feeds ON feeds.id = items.feed_id 
-WHERE items.last_loaded IS NULL group by items.id order by items.feed_index asc`
+SELECT items.id, items.feed_index, feeds.title AS feed_title, items.title AS title, items.url FROM items
+INNER JOIN feeds ON feeds.id = items.feed_id
+LEFT JOIN contents c ON items.id = c.item_id AND c.type = 'raw'
+WHERE c.id IS NULL GROUP BY items.id ORDER BY items.feed_index ASC;`
 	s, err := c.Query(sql)
 	if err != nil {
 		return nil, err
@@ -308,7 +309,7 @@ func GetContentsForEbook(c *sql.DB) ([]Item, error) {
     INNER JOIN contents AS html ON items.id = html.item_id AND html.type = 'html'
     LEFT JOIN contents AS epub ON items.id = epub.item_id AND epub.type = 'epub'
     LEFT JOIN contents AS mobi ON items.id = mobi.item_id AND mobi.type = 'mobi'
-WHERE epub.path IS NULL OR mobi.path IS NULL; `
+WHERE epub.path IS NULL OR mobi.path IS NULL;`
 
 	s1, err := c.Query(sql)
 	if err != nil {
