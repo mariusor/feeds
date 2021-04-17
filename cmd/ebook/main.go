@@ -139,7 +139,7 @@ func main() {
 						log.Printf("Unable to generate path %s: %s", filePath, err.Error())
 					}
 					cont.Path = filePath
-					if _, err = s.Exec(cont.ID, cont.Path, typ); err != nil {
+					if _, err = s.Exec(item.ID, cont.Path, typ); err != nil {
 						log.Printf("Unable to update paths in db: %s", err.Error())
 						return nil
 					}
