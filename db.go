@@ -302,8 +302,8 @@ FROM contents c
 INNER JOIN items i ON c.item_id = i.id
 INNER JOIN feeds f ON i.feed_id = f.id
 INNER JOIN destinations d ON (%s)
-LEFT JOIN targets t ON t.item_id = i.id
-LEFT JOIN destinations ex ON ex.id = t.destination_id AND (t.id IS NULL OR t.last_status = 0)
+LEFT JOIN targets t ON t.item_id = i.id AND (t.id IS NULL or t.last_status = 0)
+LEFT JOIN destinations ex ON ex.id = t.destination_id 
 GROUP BY i.id, d.type, d.id ORDER BY i.id;`, strings.Join(wheres, " OR "))
 
 	s, err := c.Query(sql, params...)
