@@ -285,12 +285,12 @@ WHERE c.id IS NULL GROUP BY items.id ORDER BY items.feed_index ASC;`
 	return all, nil
 }
 
-type DispatchItems struct {
+type DispatchItem struct {
 	Item Item
 	Destination Destination
 }
 
-func GetNonDispatchedItemContentsForDestination(c *sql.DB) ([]DispatchItems, error) {
+func GetNonDispatchedItemContentsForDestination(c *sql.DB) ([]DispatchItem, error) {
 	wheres := make([]string, 0)
 	params := make([]interface{}, 0)
 	for typ, t := range ValidTargets {
@@ -303,7 +303,7 @@ INNER JOIN items i ON c.item_id = i.id
 INNER JOIN feeds f ON i.feed_id = f.id
 INNER JOIN destinations d ON (%s)
 LEFT JOIN targets t ON t.item_id = i.id
-LEFT JOIN destinations ex ON ex.id = t.destination_id AND t.id IS NULL
+LEFT JOIN destinations ex ON ex.id = t.destination_id AND (t.id IS NULL OR t.last_status = 0)
 GROUP BY i.id, d.type, d.id ORDER BY i.id;`, strings.Join(wheres, " OR "))
 
 	s, err := c.Query(sql, params...)
@@ -311,7 +311,7 @@ GROUP BY i.id, d.type, d.id ORDER BY i.id;`, strings.Join(wheres, " OR "))
 	if err != nil {
 		return nil, err
 	}
-	all := make([]DispatchItems, 0)
+	all := make([]DispatchItem, 0)
 	for s.Next() {
 		var (
 			it                 = Item{Content: make(map[string]Content)}
@@ -321,7 +321,7 @@ GROUP BY i.id, d.type, d.id ORDER BY i.id;`, strings.Join(wheres, " OR "))
 		)
 		s.Scan(&contID, &it.ID, &it.Feed.Title, &it.Title, &it.Author, &contPath, &contType, &dest.ID, &dest.Type, &dest.Credentials)
 		it.Content[contType] = Content{ID: contID, Path: contPath, Type: contType}
-		all = append(all, DispatchItems{
+		all = append(all, DispatchItem{
 			Item:        it,
 			Destination: dest,
 		})

@@ -3,7 +3,7 @@ package feeds
 import (
 	"database/sql"
 	"encoding/json"
-	"errors"
+	"fmt"
 	"log"
 	"net/smtp"
 
@@ -46,43 +46,44 @@ func (k MyKindleDestination) Target() TargetService {
 	return k.Service
 }
 
-func DispatchToKindle(subject string, attachment string, c *sql.DB) (bool, error) {
-	if attachment == "" {
-		return false, errors.New("missing attachment file")
-	}
-	targets := "SELECT targets.data, outputs.credentials FROM targets INNER JOIN outputs ON outputs.id = targets.output_id WHERE outputs.type = 'kindle'"
-	r, err := c.Query(targets)
-	if err != nil {
+func DispatchToKindle(c *sql.DB, disp DispatchItem) (bool, error) {
+	var target MyKindleDestination
+	if err := json.Unmarshal(disp.Destination.Credentials, &target); err != nil {
 		return false, err
 	}
-	for r.Next() {
-		var data []byte
-		var credentials []byte
-
-		r.Scan(&data, &credentials)
-
-		var settings SMTPCreds
-		var target MyKindleDestination
-		err = json.Unmarshal(credentials, &settings)
-		if err != nil {
-			return false, err
+	var cont Content
+	for _, typ := range ValidTargets[target.Type()].ValidContentTypes() {
+		var ok bool
+		if cont, ok = disp.Item.Content[typ]; ok {
+			break
 		}
-		err = json.Unmarshal(data, &target)
-		if err != nil {
-			return false, err
-		}
-		e := email.NewEmail()
-		log.Printf("Emailing %s to %s", attachment, target.To)
+	}
 
-		e.From = settings.From
-		e.To = []string{target.To}
-		e.Bcc = []string{settings.From}
-		e.Subject = subject
-		e.AttachFile(attachment)
-		err = e.Send(settings.Server+":"+settings.Port, smtp.PlainAuth("", settings.User, settings.Password, settings.Server))
-		if err != nil {
-			return false, err
-		}
+	e := email.NewEmail()
+	log.Printf("Emailing %s to %s %s", cont.Path, target.To, target.Type())
+
+	settings := target.Service.SendCredentials
+	e.From = settings.From
+	e.To = []string{target.To}
+	e.Bcc = []string{settings.From}
+	e.Subject = fmt.Sprintf("%s: %s", disp.Item.Feed.Title, disp.Item.Title)
+	if _, err := e.AttachFile(cont.Path); err != nil {
+		return false, err
+	}
+
+	params := []interface{} {disp.Destination.ID, disp.Item.ID}
+	err := e.Send(settings.Server+":"+settings.Port, smtp.PlainAuth("", settings.User, settings.Password, settings.Server))
+	if err != nil {
+		params = append(params, false)
+		params = append(params, err.Error())
+	} else {
+		params = append(params, true)
+		params = append(params, "")
+	}
+
+	sql := `INSERT INTO targets (destination_id, item_id, last_status, last_message) VALUES(?, ?, ?, ?);`
+	if _, err := c.Exec(sql, params...); err != nil {
+		log.Printf("unable to insert dispatched item: %s", err)
 	}
 	return true, nil
 }

@@ -1,7 +1,9 @@
 package main
 
 import (
+	"database/sql"
 	"flag"
+	"fmt"
 	"log"
 	"os"
 	"path"
@@ -40,20 +42,18 @@ func main() {
 		log.Printf("Error: %s", err)
 	}
 	for _, disp := range all {
-		it := disp.Item
-		for typ, cont := range it.Content {
-			var st bool
-			switch typ {
-			case "kindle":
-				if st, err = feeds.DispatchToKindle(it.Title, cont.Path, c); err != nil {
-					log.Printf("Error: %s", err)
-					continue
-				}
-			case "pocket":
-				log.Printf("Pocket dispatch is not ready yet for %s", it.Title)
-			}
-			targetSql := `insert into targets (destination_id, item_id, last_status) VALUES(?, ?, ?);`
-			c.Exec(targetSql, disp.Destination.ID, it.ID, st)
+		if _, err := Dispatch(c, disp); err != nil {
+			log.Printf("Error dispatching: %s", err)
 		}
 	}
+}
+
+func Dispatch(c *sql.DB, disp feeds.DispatchItem) (bool, error) {
+	switch disp.Destination.Type {
+	case "myk":
+		return feeds.DispatchToKindle(c, disp)
+	case "pocket":
+		return feeds.DispatchToPocket(c, disp)
+	}
+	return false, fmt.Errorf("unknown dispatch type %s", disp.Destination.Type)
 }
