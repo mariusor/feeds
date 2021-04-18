@@ -5,10 +5,6 @@ type Target struct {
 	Destination TargetDestination
 }
 
-func (k MyKindleDestination) Type() string {
-	return "myk"
-}
-
 var ValidTargets = map[string]TargetService{
 	"myk": ServiceMyKindle{},
 	"pocket": ServicePocket{},
@@ -22,6 +18,7 @@ type TargetDestination interface {
 type TargetService interface {
 	Label() string
 	Description() string
+	ValidContentTypes() []string
 }
 
 type ServiceMyKindle struct {
@@ -35,6 +32,10 @@ func (k ServiceMyKindle) Description() string {
 	return "Syncs to your Kindle device through your Amazon Kindle email address"
 }
 
+func (k ServiceMyKindle) ValidContentTypes() []string {
+	return []string{"mobi"}
+}
+
 type ServiceReMarkable struct {}
 
 func (r ServiceReMarkable) Label() string {
@@ -43,4 +44,7 @@ func (r ServiceReMarkable) Label() string {
 
 func (r ServiceReMarkable) Description() string {
 	return "to be added"
+}
+func (k ServiceReMarkable) ValidContentTypes() []string {
+	return []string{"epub"/*, "pdf"*/}
 }

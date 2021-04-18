@@ -11,8 +11,6 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-
-
 var (
 	SMTPServer = "smtp.example.com"
 	SMTPPort = "587"
@@ -38,6 +36,10 @@ type SMTPCreds struct {
 type MyKindleDestination struct {
 	Service ServiceMyKindle `json:"service"`
 	To      string          `json:"to"`
+}
+
+func (k MyKindleDestination) Type() string {
+	return "myk"
 }
 
 func DispatchToKindle(subject string, attachment string, c *sql.DB) (bool, error) {

@@ -20,6 +20,10 @@ func (p ServicePocket) Description() string {
 	return "Syncs to your Pocket account"
 }
 
+func (p ServicePocket) ValidContentTypes() []string {
+	return []string{"epub", "raw", "html"}
+}
+
 func PocketInit() (*ServicePocket, error) {
 	if PocketConsumerKey == "" {
 		return nil, fmt.Errorf("no Pocket application key has been set up")
