@@ -43,3 +43,7 @@ type PocketDestination struct {
 func (p PocketDestination) Type() string {
 	return "pocket"
 }
+
+func (p PocketDestination) Target() TargetService {
+	return p.Service
+}

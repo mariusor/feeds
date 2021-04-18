@@ -13,6 +13,7 @@ var ValidTargets = map[string]TargetService{
 
 type TargetDestination interface {
 	Type() string
+	Target() TargetService
 }
 
 type TargetService interface {
@@ -22,7 +23,7 @@ type TargetService interface {
 }
 
 type ServiceMyKindle struct {
-	SendCredentials SMTPCreds
+	SendCredentials SMTPCreds `json:"send_credentials"`
 }
 
 func (k ServiceMyKindle) Label() string {
@@ -45,6 +46,7 @@ func (r ServiceReMarkable) Label() string {
 func (r ServiceReMarkable) Description() string {
 	return "to be added"
 }
-func (k ServiceReMarkable) ValidContentTypes() []string {
+
+func (r ServiceReMarkable) ValidContentTypes() []string {
 	return []string{"epub"/*, "pdf"*/}
 }

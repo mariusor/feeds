@@ -42,6 +42,10 @@ func (k MyKindleDestination) Type() string {
 	return "myk"
 }
 
+func (k MyKindleDestination) Target() TargetService {
+	return k.Service
+}
+
 func DispatchToKindle(subject string, attachment string, c *sql.DB) (bool, error) {
 	if attachment == "" {
 		return false, errors.New("missing attachment file")

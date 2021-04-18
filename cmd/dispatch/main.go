@@ -35,17 +35,25 @@ func main() {
 	}
 	defer c.Close()
 
-	all, err := feeds.GetNonDispatchedItemContents(c)
+	all, err := feeds.GetNonDispatchedItemContentsForDestination(c)
 	if err != nil {
 		log.Printf("Error: %s", err)
 	}
-	for _, cont := range all {
-		st, err := feeds.DispatchToKindle(cont.Item.Title, cont.Path, c)
-		if err != nil {
-			log.Printf("Error: %s", err)
-			continue
+	for _, disp := range all {
+		it := disp.Item
+		for typ, cont := range it.Content {
+			var st bool
+			switch typ {
+			case "kindle":
+				if st, err = feeds.DispatchToKindle(it.Title, cont.Path, c); err != nil {
+					log.Printf("Error: %s", err)
+					continue
+				}
+			case "pocket":
+				log.Printf("Pocket dispatch is not ready yet for %s", it.Title)
+			}
+			targetSql := `insert into targets (destination_id, item_id, last_status) VALUES(?, ?, ?);`
+			c.Exec(targetSql, disp.Destination.ID, it.ID, st)
 		}
-		updateFeed := "UPDATE items_contents SET dispatched = ? WHERE id = ?"
-		c.Exec(updateFeed, st, cont.Item.ID)
 	}
 }

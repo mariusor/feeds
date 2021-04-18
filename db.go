@@ -107,6 +107,20 @@ func createTables(c *sql.DB) error {
 	if _, err := c.Exec(destinations); err != nil {
 		return err
 	}
+
+	targets := `create table targets (
+		id INTEGER PRIMARY KEY ASC,
+		destination_id int,
+		item_id int,
+		last_status int,
+		last_message text,
+		flags INT DEFAULT 0,
+		FOREIGN KEY(item_id) REFERENCES items(id),
+		FOREIGN KEY(destination_id) REFERENCES destinations(id)
+	);`
+	if _, err := c.Exec(targets); err != nil {
+		return err
+	}
 	/*
 	// We disable these tables for now
 	insertUsers := `INSERT INTO users (id) VALUES(?);`
@@ -115,15 +129,6 @@ func createTables(c *sql.DB) error {
 	}
 
 	// table targets holds the details of the local application configuration for the service it represents
-	targets := `create table targets (
-		id INTEGER PRIMARY KEY ASC,
-		service TEXT,
-		data TEXT,
-		flags INT DEFAULT 0
-	);`
-	if _, err := c.Exec(targets); err != nil {
-		return err
-	}
 	*/
 
 	return nil
@@ -280,25 +285,46 @@ WHERE c.id IS NULL GROUP BY items.id ORDER BY items.feed_index ASC;`
 	return all, nil
 }
 
-func GetNonDispatchedItemContents(c *sql.DB) ([]Item, error) {
-	sql := `SELECT contents.id, items.id, feeds.title, items.title, items.author, path, type 
-		FROM contents 
-		INNER JOIN items ON items.id = contents.item_id 
-		INNER JOIN feeds ON feeds.id = items.feed_id WHERE contents.dispatched != 1;`
+type DispatchItems struct {
+	Item Item
+	Destination Destination
+}
 
-	s, err := c.Query(sql)
+func GetNonDispatchedItemContentsForDestination(c *sql.DB) ([]DispatchItems, error) {
+	wheres := make([]string, 0)
+	params := make([]interface{}, 0)
+	for typ, t := range ValidTargets {
+		wheres = append(wheres, fmt.Sprintf("d.type = '%s' AND c.type IN ('%s')", typ, strings.Join(t.ValidContentTypes(), "', '")))
+	}
+	sql := fmt.Sprintf(`SELECT 
+	c.id, i.id, f.title, i.title, i.author, c.path, c.type, d.id, d.type, d.credentials 
+FROM contents c
+INNER JOIN items i ON c.item_id = i.id
+INNER JOIN feeds f ON i.feed_id = f.id
+INNER JOIN destinations d ON (%s)
+LEFT JOIN targets t ON t.item_id = i.id
+LEFT JOIN destinations ex ON ex.id = t.destination_id AND t.id IS NULL
+GROUP BY i.id, d.type, d.id ORDER BY i.id;`, strings.Join(wheres, " OR "))
+
+	s, err := c.Query(sql, params...)
 	defer s.Close()
 	if err != nil {
 		return nil, err
 	}
-	all := make([]Item, 0)
+	all := make([]DispatchItems, 0)
 	for s.Next() {
 		var (
-			cont   = Item{}
-			contID, contType, contPath string
+			it                 = Item{Content: make(map[string]Content)}
+			dest               = Destination{}
+			contType, contPath string
+			contID             int
 		)
-		s.Scan(&cont.ID, &contID, &cont.Feed.Title, &cont.Title, &cont.Author, &contPath, &contType)
-		all = append(all, cont)
+		s.Scan(&contID, &it.ID, &it.Feed.Title, &it.Title, &it.Author, &contPath, &contType, &dest.ID, &dest.Type, &dest.Credentials)
+		it.Content[contType] = Content{ID: contID, Path: contPath, Type: contType}
+		all = append(all, DispatchItems{
+			Item:        it,
+			Destination: dest,
+		})
 	}
 	return all, nil
 }
@@ -455,21 +481,21 @@ func LoadDestination(c *sql.DB, identifier, service string) (*User, error) {
 	return &all[0], nil
 }
 
-type destination struct {
+type Destination struct {
 	ID int
 	Type string
 	Credentials []byte
 	Flags int
 }
 
-func loadMyKindleDestination(c *sql.DB, d MyKindleDestination) (*destination, error) {
+func loadMyKindleDestination(c *sql.DB, d MyKindleDestination) (*Destination, error) {
 	sel := `SELECT id, type, credentials, flags FROM destinations 
 WHERE type = ? AND json_extract(credentials, '$.to') = ?`
 	s, err := c.Query(sel, d.Type(), d.To)
 	if err != nil {
 		return nil, err
 	}
-	dd := destination{}
+	dd := Destination{}
 	for s.Next() {
 		s.Scan(&dd.ID, &dd.Type, &dd.Credentials, &dd.Flags)
 	}
@@ -479,14 +505,14 @@ WHERE type = ? AND json_extract(credentials, '$.to') = ?`
 	return nil, nil
 }
 
-func loadPocketDestination(c *sql.DB, d PocketDestination) (*destination, error) {
+func loadPocketDestination(c *sql.DB, d PocketDestination) (*Destination, error) {
 	sel := `SELECT id, type, credentials, flags FROM destinations 
 WHERE type = ? AND json_extract(credentials, '$.username') = ?`
 	s, err := c.Query(sel, d.Type(), d.Username)
 	if err != nil {
 		return nil, err
 	}
-	dd := destination{}
+	dd := Destination{}
 	for s.Next() {
 		s.Scan(&dd.ID, &dd.Type, &dd.Credentials, &dd.Flags)
 	}
@@ -496,7 +522,7 @@ WHERE type = ? AND json_extract(credentials, '$.username') = ?`
 	return nil, nil
 }
 
-func loadDestination(c *sql.DB, d TargetDestination) (*destination, error) {
+func loadDestination(c *sql.DB, d TargetDestination) (*Destination, error) {
 	switch dd := d.(type) {
 	case PocketDestination:
 		return loadPocketDestination(c, dd)
@@ -506,7 +532,7 @@ func loadDestination(c *sql.DB, d TargetDestination) (*destination, error) {
 	return nil, errors.New("invalid destination")
 }
 
-func insertDestination(c *sql.DB, d destination) error {
+func insertDestination(c *sql.DB, d Destination) error {
 	sql := `INSERT INTO destinations (type, credentials, flags) VALUES(?, ?, ?);`
 	if _, err := c.Exec(sql, d.Type, d.Credentials, d.Flags); err != nil {
 		return err
@@ -514,7 +540,7 @@ func insertDestination(c *sql.DB, d destination) error {
 	return nil
 }
 
-func updateDestination(c *sql.DB, d destination) error {
+func updateDestination(c *sql.DB, d Destination) error {
 	sql := `UPDATE destinations SET type = ?, credentials = ?, flags = ? WHERE id = ?`
 	if _, err := c.Exec(sql, d.Type, d.Credentials, d.Flags, d.ID); err != nil {
 		return err
@@ -534,7 +560,7 @@ func SaveDestination(c *sql.DB, d TargetDestination) error {
 	}
 
 	if dd == nil {
-		dd = &destination{
+		dd = &Destination{
 			Type:        d.Type(),
 			Credentials: creds,
 			Flags:  FlagsNone,
