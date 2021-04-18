@@ -12,8 +12,12 @@ type ServicePocket struct {
 	ConsumerKey   string
 }
 
-func(p *ServicePocket) Label()string {
+func(p ServicePocket) Label()string {
 	return "Pocket"
+}
+
+func (p ServicePocket) Description() string {
+	return "Syncs to your Pocket account"
 }
 
 func PocketInit() (*ServicePocket, error) {
@@ -28,4 +32,17 @@ func (p *ServicePocket) ObtainAccessToken(reqToken *auth.RequestToken) (*auth.Au
 		return nil, fmt.Errorf("request has not been authorized by user")
 	}
 	return auth.ObtainAccessToken(p.ConsumerKey, reqToken)
+}
+
+type PocketDestination struct {
+	Service      ServicePocket      `json:"service"`
+	Step         int                `json:"-"`
+	RequestToken *auth.RequestToken `json:"-"`
+	AuthorizeURL string             `json:"-"`
+	AccessToken  string             `json:"access_token"`
+	Username     string             `json:"username"`
+}
+
+func (p PocketDestination) Type() string {
+	return "pocket"
 }

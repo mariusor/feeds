@@ -5,13 +5,6 @@
     <title>Login</title>
 </head>
 <body>
-<dl>
-{{ range $typ, $desc := .Targets }}
-    <dt><a href="/register/{{ sluggify $typ }}">{{$typ}}</a></dt>
-    <dd>{{$desc}}</dd>
-{{ else }}
-    <dt>No services available at the moment.</dt>
-{{ end }}
-</dl>
+{{ template "services.html" . }}
 </body>
 </html>

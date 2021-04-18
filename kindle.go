@@ -27,8 +27,9 @@ type SMTPCreds struct {
 	Password string `json:"password"`
 }
 
-type myKindleDestination struct {
-	To string `json:"to"`
+type MyKindleDestination struct {
+	Service ServiceMyKindle
+	To      string `json:"to"`
 }
 
 func DispatchToKindle(subject string, attachment string, c *sql.DB) (bool, error) {
@@ -47,7 +48,7 @@ func DispatchToKindle(subject string, attachment string, c *sql.DB) (bool, error
 		r.Scan(&data, &credentials)
 
 		var settings SMTPCreds
-		var target myKindleDestination
+		var target MyKindleDestination
 		err = json.Unmarshal(credentials, &settings)
 		if err != nil {
 			return false, err

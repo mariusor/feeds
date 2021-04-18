@@ -2,20 +2,17 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Login with your Pocket account</title>
+    <title>Register your Pocket account</title>
 </head>
 <body>
 <main>
-{{ if .User }}
-{{ $user := .User }}
-{{ range $key, $auth := $user.Services }}
-    <p>Name: {{ $auth.Username }}</p>
-{{ end }}
-{{ else }}
 {{ $destination := .Destination }}
+{{ if gt (len $destination.Username) 0 }}
+    <p>Name: {{ $destination.Username }}</p>
+{{ else }}
 {{ $service := .Service }}
     <p>After successfully authorizing the "{{ $service.AppName }}" application you will receive a document with a code to confirm your subscription.</p>
-    {{ if gt (len $destination.AuthorizeURL) 0 }}<a href="{{ $destination.AuthorizeURL}}">Authorize</a>{{ end }}
+    {{ if gt (len $destination.AuthorizeURL) 0 }}<a href="{{ $destination.AuthorizeURL }}">Authorize</a>{{ end }}
 {{ end }}
 </main>
 </body>
