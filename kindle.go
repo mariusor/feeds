@@ -1,14 +1,12 @@
 package feeds
 
 import (
-	"database/sql"
 	"encoding/json"
 	"fmt"
-	"log"
-	"net/smtp"
-
 	"github.com/jordan-wright/email"
+	"log"
 	_ "modernc.org/sqlite"
+	"net/smtp"
 )
 
 var (
@@ -46,7 +44,7 @@ func (k MyKindleDestination) Target() TargetService {
 	return k.Service
 }
 
-func DispatchToKindle(c *sql.DB, disp DispatchItem) (bool, error) {
+func DispatchToKindle(disp DispatchItem) (bool, error) {
 	var target MyKindleDestination
 	if err := json.Unmarshal(disp.Destination.Credentials, &target); err != nil {
 		return false, err
@@ -71,19 +69,9 @@ func DispatchToKindle(c *sql.DB, disp DispatchItem) (bool, error) {
 		return false, err
 	}
 
-	params := []interface{} {disp.Destination.ID, disp.Item.ID}
 	err := e.Send(settings.Server+":"+settings.Port, smtp.PlainAuth("", settings.User, settings.Password, settings.Server))
 	if err != nil {
-		params = append(params, false)
-		params = append(params, err.Error())
-	} else {
-		params = append(params, true)
-		params = append(params, "")
-	}
-
-	sql := `INSERT INTO targets (destination_id, item_id, last_status, last_message) VALUES(?, ?, ?, ?);`
-	if _, err := c.Exec(sql, params...); err != nil {
-		log.Printf("unable to insert dispatched item: %s", err)
+		return false, err
 	}
 	return true, nil
 }

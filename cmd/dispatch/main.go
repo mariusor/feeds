@@ -42,18 +42,29 @@ func main() {
 		log.Printf("Error: %s", err)
 	}
 	for _, disp := range all {
-		if _, err := Dispatch(c, disp); err != nil {
+		if err := Dispatch(c, disp); err != nil {
 			log.Printf("Error dispatching: %s", err)
 		}
 	}
 }
 
-func Dispatch(c *sql.DB, disp feeds.DispatchItem) (bool, error) {
+func Dispatch(c *sql.DB, disp feeds.DispatchItem) error {
+	var (
+		err error
+		status bool
+	)
 	switch disp.Destination.Type {
 	case "myk":
-		return feeds.DispatchToKindle(c, disp)
+		status, err = feeds.DispatchToKindle(disp)
 	case "pocket":
-		return feeds.DispatchToPocket(c, disp)
+		status, err = feeds.DispatchToPocket(disp)
+	default:
+		return fmt.Errorf("unknown dispatch type %s", disp.Destination.Type)
 	}
-	return false, fmt.Errorf("unknown dispatch type %s", disp.Destination.Type)
+	disp.LastStatus = status
+	if err != nil {
+		disp.LastMessage = err.Error()
+	}
+	feeds.SaveTarget(c, disp)
+	return err
 }

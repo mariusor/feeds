@@ -83,7 +83,7 @@ func createTables(c *sql.DB) error {
 		path TEXT,
 		type TEXT,
 		FOREIGN KEY(item_id) REFERENCES items(id),
-		constraint contents_uindex unique (item_id, type)
+		CONSTRAINT contents_uindex UNIQUE (item_id, type)
 	);`
 	if _, err := c.Exec(contents); err != nil {
 		return err
@@ -116,7 +116,8 @@ func createTables(c *sql.DB) error {
 		last_message text,
 		flags INT DEFAULT 0,
 		FOREIGN KEY(item_id) REFERENCES items(id),
-		FOREIGN KEY(destination_id) REFERENCES destinations(id)
+		FOREIGN KEY(destination_id) REFERENCES destinations(id),
+		CONSTRAINT item_destination_uindex UNIQUE (item_id, destination_id)
 	);`
 	if _, err := c.Exec(targets); err != nil {
 		return err
@@ -286,7 +287,11 @@ WHERE c.id IS NULL GROUP BY items.id ORDER BY items.feed_index ASC;`
 }
 
 type DispatchItem struct {
-	Item Item
+	ID          int
+	LastStatus  bool
+	LastMessage string
+	Flags       int
+	Item        Item
 	Destination Destination
 }
 
@@ -296,8 +301,7 @@ func GetNonDispatchedItemContentsForDestination(c *sql.DB) ([]DispatchItem, erro
 	for typ, t := range ValidTargets {
 		wheres = append(wheres, fmt.Sprintf("d.type = '%s' AND c.type IN ('%s')", typ, strings.Join(t.ValidContentTypes(), "', '")))
 	}
-	sql := fmt.Sprintf(`SELECT 
-	c.id, i.id, f.title, i.title, i.author, c.path, c.type, d.id, d.type, d.credentials 
+	sel := fmt.Sprintf(`SELECT t.id, c.id, i.id, f.title, i.title, i.author, c.path, c.type, d.id, d.type, d.credentials 
 FROM contents c
 INNER JOIN items i ON c.item_id = i.id
 INNER JOIN feeds f ON i.feed_id = f.id
@@ -306,11 +310,12 @@ LEFT JOIN targets t ON t.item_id = i.id AND (t.id IS NULL or t.last_status = 0)
 LEFT JOIN destinations ex ON ex.id = t.destination_id 
 GROUP BY i.id, d.type, d.id ORDER BY i.id;`, strings.Join(wheres, " OR "))
 
-	s, err := c.Query(sql, params...)
-	defer s.Close()
+	s, err := c.Query(sel, params...)
 	if err != nil {
 		return nil, err
 	}
+	defer s.Close()
+
 	all := make([]DispatchItem, 0)
 	for s.Next() {
 		var (
@@ -318,13 +323,21 @@ GROUP BY i.id, d.type, d.id ORDER BY i.id;`, strings.Join(wheres, " OR "))
 			dest               = Destination{}
 			contType, contPath string
 			contID             int
+			targetID           sql.NullInt32
 		)
-		s.Scan(&contID, &it.ID, &it.Feed.Title, &it.Title, &it.Author, &contPath, &contType, &dest.ID, &dest.Type, &dest.Credentials)
+		err := s.Scan(&targetID, &contID, &it.ID, &it.Feed.Title, &it.Title, &it.Author, &contPath, &contType, &dest.ID, &dest.Type, &dest.Credentials)
+		if err != nil {
+			continue
+		}
 		it.Content[contType] = Content{ID: contID, Path: contPath, Type: contType}
-		all = append(all, DispatchItem{
+		dd := DispatchItem{
 			Item:        it,
 			Destination: dest,
-		})
+		}
+		if targetID.Valid {
+			dd.ID = int(targetID.Int32)
+		}
+		all = append(all, dd)
 	}
 	return all, nil
 }
@@ -341,6 +354,8 @@ WHERE epub.path IS NULL OR mobi.path IS NULL;`
 	if err != nil {
 		return nil, err
 	}
+	defer s1.Close()
+
 	all := make(map[int]Item)
 	itemIds := make([]string, 0)
 	for s1.Next() {
@@ -369,6 +384,8 @@ WHERE epub.path IS NULL OR mobi.path IS NULL;`
 	if err != nil {
 		return nil, err
 	}
+	defer s2.Close()
+
 	for s2.Next() {
 		var (
 			id, itemId int
@@ -403,6 +420,8 @@ WHERE items.feed_id = ? ORDER BY items.feed_index ASC;`
 	if err != nil {
 		return nil, err
 	}
+	defer s.Close()
+
 	all := make([]Item, 0)
 	itemIds := make([]string, 0)
 	for s.Next() {
@@ -428,6 +447,8 @@ WHERE items.feed_id = ? ORDER BY items.feed_index ASC;`
 	if err != nil {
 		return nil, err
 	}
+	defer s2.Close()
+
 	for s2.Next() {
 		var (
 			inx, id, itemId int
@@ -458,29 +479,6 @@ type User struct {
 	Services Services
 }
 
-func LoadDestination(c *sql.DB, identifier, service string) (*User, error) {
-	sql := `SELECT id, credentials from destinations where type = ? and json_extract("credentials", '$.id') = ?`
-	s, err := c.Query(sql, service, identifier)
-	if err != nil {
-		return nil, err
-	}
-	all := make([]User, 0)
-	for s.Next() {
-		user := User{}
-		raw := make([]byte, 0)
-		s.Scan(&user.ID, &raw)
-		all = append(all, user)
-	}
-
-	if len(all) > 1 {
-		return nil, fmt.Errorf("too many users")
-	}
-	if len(all) == 0 {
-		return nil, fmt.Errorf("user not found")
-	}
-	return &all[0], nil
-}
-
 type Destination struct {
 	ID int
 	Type string
@@ -495,6 +493,8 @@ WHERE type = ? AND json_extract(credentials, '$.to') = ?`
 	if err != nil {
 		return nil, err
 	}
+	defer s.Close()
+
 	dd := Destination{}
 	for s.Next() {
 		s.Scan(&dd.ID, &dd.Type, &dd.Credentials, &dd.Flags)
@@ -512,6 +512,8 @@ WHERE type = ? AND json_extract(credentials, '$.username') = ?`
 	if err != nil {
 		return nil, err
 	}
+	defer s.Close()
+
 	dd := Destination{}
 	for s.Next() {
 		s.Scan(&dd.ID, &dd.Type, &dd.Credentials, &dd.Flags)
@@ -569,4 +571,49 @@ func SaveDestination(c *sql.DB, d TargetDestination) error {
 	}
 	dd.Credentials = creds
 	return updateDestination(c, *dd)
+}
+
+func insertTarget(c *sql.DB, t DispatchItem) error {
+	sql := `INSERT INTO targets (destination_id, item_id, flags, last_status, last_message) VALUES(?, ?, ?, ?, ?);`
+	if _, err := c.Exec(sql, t.Destination.ID, t.Item.ID, t.Flags, t.LastStatus, t.LastMessage); err != nil {
+		return err
+	}
+	return nil
+}
+
+func updateTarget(c *sql.DB, t DispatchItem) error {
+	sql := `UPDATE targets SET last_status = ?, last_message = ?, flags = ? WHERE id = ?`
+	if _, err := c.Exec(sql, t.LastStatus, t.LastMessage, t.Flags, t.ID); err != nil {
+		return err
+	}
+	return nil
+}
+
+func loadTarget(c *sql.DB, t DispatchItem) (*DispatchItem, error) {
+	sql := `SELECT id, last_status, last_message, flags FROM targets WHERE destination_id = ? AND item_id = ?`
+	s, err := c.Query(sql, t.Destination.ID, t.Item.ID)
+	if err != nil {
+		return nil, err
+	}
+	defer s.Close()
+
+	for s.Next() {
+		s.Scan(&t.ID, &t.LastStatus, &t.LastMessage, &t.Flags)
+	}
+	if t.ID > 0 {
+		return &t, nil
+	}
+	return nil, nil
+}
+
+func SaveTarget(c *sql.DB, tt DispatchItem) error {
+	t, err := loadTarget(c, tt)
+	if err != nil {
+		return err
+	}
+
+	if t == nil {
+		return insertTarget(c, tt)
+	}
+	return updateTarget(c, *t)
 }
