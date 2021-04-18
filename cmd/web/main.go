@@ -218,7 +218,7 @@ func (t target) Handler(w http.ResponseWriter, r *http.Request) {
 			}
 		case PocketAuthStepAuthLinkGenerated:
 			if pocket.AccessToken == "" && pocket.RequestToken != nil {
-				if authTok, err := pocket.Service.ObtainAccessToken(pocket.RequestToken); err != nil {
+				if authTok, err := auth.ObtainAccessToken(pocket.Service.ConsumerKey, pocket.RequestToken); err != nil {
 					if strings.Contains(err.Error(), "403") {
 						pocket.Step = PocketAuthNotStarted
 					}
@@ -230,7 +230,7 @@ func (t target) Handler(w http.ResponseWriter, r *http.Request) {
 					pocket.Username = authTok.Username
 					pocket.AccessToken = authTok.AccessToken
 					pocket.Step = PocketAuthStepAuthorized
-					if err := feeds.SaverDestination(c, pocket); err != nil {
+					if err := feeds.SaveDestination(c, pocket); err != nil {
 						errorTpl.Execute(w, err)
 						return
 					}
@@ -246,6 +246,13 @@ func (t target) Handler(w http.ResponseWriter, r *http.Request) {
 	if strings.ToLower(t.Service.Label()) == "mykindle" {
 		kindle := getKindleSession(s)
 		kindle.Service, _ = t.Service.(feeds.ServiceMyKindle)
+		if r.Method == http.MethodPost {
+			kindle.To = r.FormValue("myk_account")
+			if err := feeds.SaveDestination(c, kindle); err != nil {
+				errorTpl.Execute(w, err)
+				return
+			}
+		}
 		s.Values["kindle"] = kindle
 		t.Destination = kindle
 	}

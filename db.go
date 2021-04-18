@@ -3,6 +3,8 @@ package feeds
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -95,22 +97,20 @@ func createTables(c *sql.DB) error {
 	if _, err := c.Exec(users); err != nil {
 		return err
 	}
+
+	destinations := `CREATE TABLE destinations (
+		id INTEGER PRIMARY KEY ASC,
+		type TEXT,
+		credentials TEXT,
+		flags INT DEFAULT 0
+	);`
+	if _, err := c.Exec(destinations); err != nil {
+		return err
+	}
 	/*
 	// We disable these tables for now
 	insertUsers := `INSERT INTO users (id) VALUES(?);`
 	if _, err := c.Exec(insertUsers, 1); err != nil {
-		return err
-	}
-
-	outputs := `CREATE TABLE outputs (
-		id INTEGER PRIMARY KEY ASC,
-		user_id INTEGER,
-		type TEXT,
-		credentials TEXT,
-		flags INT DEFAULT 0,
-		FOREIGN KEY(user_id) REFERENCES users(id)
-	);`
-	if _, err := c.Exec(outputs); err != nil {
 		return err
 	}
 
@@ -432,9 +432,9 @@ type User struct {
 	Services Services
 }
 
-func LoadUserByService(c *sql.DB, username, service string) (*User, error) {
-	sql := `SELECT id, raw from users where json_extract("raw", '$.services.?.id') = ?`
-	s, err := c.Query(sql, service, username)
+func LoadDestination(c *sql.DB, identifier, service string) (*User, error) {
+	sql := `SELECT id, credentials from destinations where type = ? and json_extract("credentials", '$.id') = ?`
+	s, err := c.Query(sql, service, identifier)
 	if err != nil {
 		return nil, err
 	}
@@ -455,6 +455,92 @@ func LoadUserByService(c *sql.DB, username, service string) (*User, error) {
 	return &all[0], nil
 }
 
-func SaveUserService(c *sql.DB, u User) error {
+type destination struct {
+	ID int
+	Type string
+	Credentials []byte
+	Flags int
+}
+
+func loadMyKindleDestination(c *sql.DB, d MyKindleDestination) (*destination, error) {
+	sel := `SELECT id, type, credentials, flags FROM destinations 
+WHERE type = ? AND json_extract(credentials, '$.to') = ?`
+	s, err := c.Query(sel, d.Type(), d.To)
+	if err != nil {
+		return nil, err
+	}
+	dd := destination{}
+	for s.Next() {
+		s.Scan(&dd.ID, &dd.Type, &dd.Credentials, &dd.Flags)
+	}
+	if dd.ID > 0 {
+		return &dd, nil
+	}
+	return nil, nil
+}
+
+func loadPocketDestination(c *sql.DB, d PocketDestination) (*destination, error) {
+	sel := `SELECT id, type, credentials, flags FROM destinations 
+WHERE type = ? AND json_extract(credentials, '$.username') = ?`
+	s, err := c.Query(sel, d.Type(), d.Username)
+	if err != nil {
+		return nil, err
+	}
+	dd := destination{}
+	for s.Next() {
+		s.Scan(&dd.ID, &dd.Type, &dd.Credentials, &dd.Flags)
+	}
+	if dd.ID > 0 {
+		return &dd, nil
+	}
+	return nil, nil
+}
+
+func loadDestination(c *sql.DB, d TargetDestination) (*destination, error) {
+	switch dd := d.(type) {
+	case PocketDestination:
+		return loadPocketDestination(c, dd)
+	case MyKindleDestination:
+		return loadMyKindleDestination(c, dd)
+	}
+	return nil, errors.New("invalid destination")
+}
+
+func insertDestination(c *sql.DB, d destination) error {
+	sql := `INSERT INTO destinations (type, credentials, flags) VALUES(?, ?, ?);`
+	if _, err := c.Exec(sql, d.Type, d.Credentials, d.Flags); err != nil {
+		return err
+	}
 	return nil
+}
+
+func updateDestination(c *sql.DB, d destination) error {
+	sql := `UPDATE destinations SET type = ?, credentials = ?, flags = ? WHERE id = ?`
+	if _, err := c.Exec(sql, d.Type, d.Credentials, d.Flags, d.ID); err != nil {
+		return err
+	}
+	return nil
+}
+
+func SaveDestination(c *sql.DB, d TargetDestination) error {
+	creds, err := json.Marshal(d)
+	if err != nil {
+		return fmt.Errorf("unable to marshal credentials: %w", err)
+	}
+
+	dd, err := loadDestination(c, d)
+	if err != nil {
+		return err
+	}
+
+	if dd == nil {
+		dd = &destination{
+			Type:        d.Type(),
+			Credentials: creds,
+			Flags:  FlagsNone,
+		}
+		return insertDestination(c, *dd)
+	}
+	dd.Credentials = creds
+	return updateDestination(c, *dd)
 }

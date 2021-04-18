@@ -11,13 +11,21 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-var DefaultMyKindleSender = SMTPCreds{
-	Server:   "smtp.example.com",
-	Port:     "587",
-	From:     "feedsync@example.com",
-	User:     "FeedSync",
-	Password: "",
-}
+
+
+var (
+	SMTPServer = "smtp.example.com"
+	SMTPPort = "587"
+	SMTPFrom = "feedsync@example.com"
+	SMTPPassword = ""
+	DefaultMyKindleSender = SMTPCreds{
+		Server:   SMTPServer,
+		Port:     SMTPPort,
+		From:     SMTPFrom,
+		User:     "FeedSync",
+		Password: SMTPPassword,
+	}
+)
 
 type SMTPCreds struct {
 	Server   string `json:"server"`
@@ -28,8 +36,8 @@ type SMTPCreds struct {
 }
 
 type MyKindleDestination struct {
-	Service ServiceMyKindle
-	To      string `json:"to"`
+	Service ServiceMyKindle `json:"service"`
+	To      string          `json:"to"`
 }
 
 func DispatchToKindle(subject string, attachment string, c *sql.DB) (bool, error) {
