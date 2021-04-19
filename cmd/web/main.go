@@ -126,14 +126,14 @@ func genRoutes(dbDsn string, ss *sessions.CookieStore) *http.ServeMux {
 		service := feeds.Slug(typ)
 		switch service {
 		case "myk":
-			r.HandleFunc(path.Join("/register", service), myKindleTarget(dbDsn, ss).Handler)
+			r.HandleFunc(path.Join("/register", service), myKindleTarget(dbDsn, ss, feedsListing.Feeds).Handler)
 		case "pocket":
 			var handlerFn http.HandlerFunc
 			curPath := path.Join("/register", service)
 			if p, err := feeds.PocketInit(); err != nil {
 				handlerFn = notFoundHandler(fmt.Errorf("Pocket is not available: %w", err))
 			} else {
-				handlerFn = pocketTarget(dbDsn, curPath, ss, *p).Handler
+				handlerFn = pocketTarget(dbDsn, curPath, ss, *p, feedsListing.Feeds).Handler
 			}
 			r.HandleFunc(curPath, handlerFn)
 		}
@@ -142,23 +142,25 @@ func genRoutes(dbDsn string, ss *sessions.CookieStore) *http.ServeMux {
 	return r
 }
 
-func myKindleTarget(dbPath string, ss sessions.Store) target {
+func myKindleTarget(dbPath string, ss sessions.Store, f []feeds.Feed) target {
 	return target{
 		dbPath: dbPath,
 		r:      R("myk", ss),
+		Feeds: f,
 		Service: feeds.ServiceMyKindle{
 			SendCredentials: feeds.DefaultMyKindleSender,
 		},
 	}
 }
 
-func pocketTarget(dbPath, curPath string, ss sessions.Store, p feeds.ServicePocket) target {
+func pocketTarget(dbPath, curPath string, ss sessions.Store, p feeds.ServicePocket, f []feeds.Feed) target {
 	if p.AppName == "" {
 		p.AppName = "FeedSync"
 	}
 	return target{
 		URL:     fmt.Sprintf("http://localhost:3000%s", curPath),
 		r:       R("pocket", ss),
+		Feeds: f,
 		dbPath:  dbPath,
 		Service: p,
 	}
@@ -169,6 +171,7 @@ type target struct {
 	URL         string
 	Service     feeds.TargetService
 	Destination feeds.TargetDestination
+	Feeds       []feeds.Feed
 	dbPath      string
 }
 
@@ -190,6 +193,7 @@ func (t target) Handler(w http.ResponseWriter, r *http.Request) {
 	defer c.Close()
 
 	s := t.r.SessionInit(r)
+	var dest *feeds.Destination
 	if strings.ToLower(t.Service.Label()) == "pocket" {
 		pocket := getPocketSession(s)
 		switch pocket.Step {
@@ -230,7 +234,7 @@ func (t target) Handler(w http.ResponseWriter, r *http.Request) {
 					pocket.Username = authTok.Username
 					pocket.AccessToken = authTok.AccessToken
 					pocket.Step = PocketAuthStepAuthorized
-					if err := feeds.SaveDestination(c, pocket); err != nil {
+					if dest, err = feeds.SaveDestination(c, pocket); err != nil {
 						errorTpl.Execute(w, err)
 						return
 					}
@@ -248,13 +252,16 @@ func (t target) Handler(w http.ResponseWriter, r *http.Request) {
 		kindle.Service, _ = t.Service.(feeds.ServiceMyKindle)
 		if r.Method == http.MethodPost {
 			kindle.To = r.FormValue("myk_account")
-			if err := feeds.SaveDestination(c, kindle); err != nil {
+			if dest, err = feeds.SaveDestination(c, kindle); err != nil {
 				errorTpl.Execute(w, err)
 				return
 			}
 		}
 		s.Values["kindle"] = kindle
 		t.Destination = kindle
+	}
+	if err = feeds.SaveSubscriptions(c, *dest, t.Feeds...); err != nil {
+		errorTpl.Execute(w, err)
 	}
 	t.r.Write(w, r, s, t)
 }

@@ -547,31 +547,35 @@ func loadDestination(c *sql.DB, d TargetDestination) (*Destination, error) {
 	return nil, errors.New("invalid destination")
 }
 
-func insertDestination(c *sql.DB, d Destination) error {
+func insertDestination(c *sql.DB, d Destination) (*Destination, error) {
 	sql := `INSERT INTO destinations (type, credentials, flags) VALUES(?, ?, ?);`
-	if _, err := c.Exec(sql, d.Type, d.Credentials, d.Flags); err != nil {
-		return err
+	r, err := c.Exec(sql, d.Type, d.Credentials, d.Flags)
+	if err != nil {
+		return nil, err
 	}
-	return nil
+	if id, err := r.LastInsertId(); err == nil {
+		d.ID = int(id)
+	}
+	return &d, nil
 }
 
-func updateDestination(c *sql.DB, d Destination) error {
+func updateDestination(c *sql.DB, d Destination) (*Destination, error) {
 	sql := `UPDATE destinations SET type = ?, credentials = ?, flags = ? WHERE id = ?`
 	if _, err := c.Exec(sql, d.Type, d.Credentials, d.Flags, d.ID); err != nil {
-		return err
+		return nil, err
 	}
-	return nil
+	return &d, nil
 }
 
-func SaveDestination(c *sql.DB, d TargetDestination) error {
+func SaveDestination(c *sql.DB, d TargetDestination) (*Destination, error) {
 	creds, err := json.Marshal(d)
 	if err != nil {
-		return fmt.Errorf("unable to marshal credentials: %w", err)
+		return nil, fmt.Errorf("unable to marshal credentials: %w", err)
 	}
 
 	dd, err := loadDestination(c, d)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	if dd == nil {
@@ -584,6 +588,23 @@ func SaveDestination(c *sql.DB, d TargetDestination) error {
 	}
 	dd.Credentials = creds
 	return updateDestination(c, *dd)
+}
+
+type Subscription struct {
+	ID int
+	Flags int
+	Destination Destination
+	Feed Feed
+}
+
+func SaveSubscriptions(c *sql.DB, d Destination, feeds ...Feed) error {
+	for _, f := range feeds {
+		ins := `INSERT INTO subscriptions (feed_id, destination_id) VALUES (?, ?)`
+		if _, err := c.Exec(ins, d.ID, f.ID); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func insertTarget(c *sql.DB, t DispatchItem) error {
