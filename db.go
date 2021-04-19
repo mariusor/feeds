@@ -122,6 +122,19 @@ func createTables(c *sql.DB) error {
 	if _, err := c.Exec(targets); err != nil {
 		return err
 	}
+
+	subscriptions := `CREATE TABLE subscriptions (
+		id INTEGER PRIMARY KEY ASC,
+		feed_id int,
+		destination_id int,
+		flags INT DEFAULT 0,
+		FOREIGN KEY(feed_id) REFERENCES feeds(id),
+		FOREIGN KEY(destination_id) REFERENCES destinations(id),
+		CONSTRAINT feed_destination_uindex UNIQUE (feed_id, destination_id)
+	);`
+	if _, err := c.Exec(subscriptions); err != nil {
+		return err
+	}
 	/*
 	// We disable these tables for now
 	insertUsers := `INSERT INTO users (id) VALUES(?);`
