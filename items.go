@@ -1,6 +1,7 @@
 package feeds
 
 import (
+	"bytes"
 	"fmt"
 	"net/url"
 	"regexp"
@@ -48,6 +49,9 @@ func Slug(s string) string {
 	b := rr.ReplaceAll([]byte(s), []byte{'-'})
 	if b[len(b)-1] == '-' {
 		b = b[:len(b)-1]
+	}
+	if bytes.Equal(b[:4], []byte{'t', 'h', 'e', '-'}) {
+		b = bytes.Replace(b, []byte("the-"), []byte{}, 1)
 	}
 	return string(b)
 }
