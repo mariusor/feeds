@@ -3,6 +3,7 @@ package feeds
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/motemen/go-pocket/api"
 	"github.com/motemen/go-pocket/auth"
 	"log"
 )
@@ -23,7 +24,7 @@ func (p ServicePocket) Description() string {
 }
 
 func (p ServicePocket) ValidContentTypes() []string {
-	return []string{"epub", "raw", "html"}
+	return []string{"raw"}
 }
 
 func PocketInit() (*ServicePocket, error) {
@@ -63,7 +64,16 @@ func DispatchToPocket(disp DispatchItem) (bool, error) {
 		}
 	}
 
+	opt := new(api.AddOption)
+	opt.URL = disp.Item.URL.String()
+	opt.Title = disp.Item.Title
+	opt.Tags = Slug(disp.Item.Feed.Title)
+
+	client := api.NewClient(target.Service.ConsumerKey, target.AccessToken)
 	log.Printf("Sending %s %s to %s %s", cont.Type, cont.Path, target.Username, target.Type())
+	if err := client.Add(opt); err != nil {
+		return false, err
+	}
 
 	return true, nil
 }

@@ -314,7 +314,7 @@ func GetNonDispatchedItemContentsForDestination(c *sql.DB) ([]DispatchItem, erro
 	for typ, t := range ValidTargets {
 		wheres = append(wheres, fmt.Sprintf("d.type = '%s' AND c.type IN ('%s')", typ, strings.Join(t.ValidContentTypes(), "', '")))
 	}
-	sel := fmt.Sprintf(`SELECT t.id, c.id, i.id, f.title, i.title, i.author, c.path, c.type, d.id, d.type, d.credentials 
+	sel := fmt.Sprintf(`SELECT t.id, c.id, i.id, f.title, i.title, i.author, i.url, c.path, c.type, d.id, d.type, d.credentials 
 FROM contents c
 INNER JOIN items i ON c.item_id = i.id
 INNER JOIN feeds f ON i.feed_id = f.id
@@ -332,16 +332,17 @@ GROUP BY i.id, d.type, d.id ORDER BY i.id;`, strings.Join(wheres, " OR "))
 	all := make([]DispatchItem, 0)
 	for s.Next() {
 		var (
-			it                 = Item{Content: make(map[string]Content)}
-			dest               = Destination{}
-			contType, contPath string
-			contID             int
-			targetID           sql.NullInt32
+			it                        = Item{Content: make(map[string]Content)}
+			dest                      = Destination{}
+			contType, contPath, itURL string
+			contID                    int
+			targetID                  sql.NullInt32
 		)
-		err := s.Scan(&targetID, &contID, &it.ID, &it.Feed.Title, &it.Title, &it.Author, &contPath, &contType, &dest.ID, &dest.Type, &dest.Credentials)
+		err := s.Scan(&targetID, &contID, &it.ID, &it.Feed.Title, &it.Title, &it.Author, &itURL, &contPath, &contType, &dest.ID, &dest.Type, &dest.Credentials)
 		if err != nil {
 			continue
 		}
+		it.URL, _ = url.Parse(itURL)
 		it.Content[contType] = Content{ID: contID, Path: contPath, Type: contType}
 		dd := DispatchItem{
 			Item:        it,
