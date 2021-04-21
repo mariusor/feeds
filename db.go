@@ -320,13 +320,12 @@ func GetNonDispatchedItemContentsForDestination(c *sql.DB) ([]DispatchItem, erro
 	for typ, t := range ValidTargets {
 		wheres = append(wheres, fmt.Sprintf("d.type = '%s' AND c.type IN ('%s')", typ, strings.Join(t.ValidContentTypes(), "', '")))
 	}
-	sel := fmt.Sprintf(`SELECT t.id, c.id, i.id, f.title, i.title, i.author, i.url, c.path, c.type, d.id, d.type, d.credentials 
-FROM contents c
-INNER JOIN items i ON c.item_id = i.id
+	sel := fmt.Sprintf(`SELECT t.id, c.id, i.id, f.title, i.title, i.author, i.url, c.path, c.type, d.id, d.type, d.credentials FROM items i
 INNER JOIN feeds f ON i.feed_id = f.id
-INNER JOIN destinations d ON (%s)
+INNER JOIN subscriptions s ON f.id = s.feed_id
+INNER JOIN destinations d ON d.id = s.destination_id
+INNER JOIN contents c ON c.item_id = i.id AND (%s)
 LEFT JOIN targets t ON t.item_id = i.id AND (t.id IS NULL or t.last_status = 0)
-LEFT JOIN destinations ex ON ex.id = t.destination_id 
 GROUP BY i.id, d.type, d.id ORDER BY i.id;`, strings.Join(wheres, " OR "))
 
 	s, err := c.Query(sel, params...)
