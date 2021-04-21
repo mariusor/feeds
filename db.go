@@ -148,18 +148,18 @@ func createTables(c *sql.DB) error {
 	return nil
 }
 
-func LoadItem(it Item, c *sql.DB, basePath string) (int, error) {
-	contentIns := `INSERT INTO contents (item_id, path, type) VALUES(?, ?, ?)`
+func LoadItem(it *Item, c *sql.DB, basePath string) (bool, error) {
+	contentIns := `INSERT INTO contents (item_id, path, type) VALUES(?, ?, ?);`
 	s1, err := c.Prepare(contentIns)
 	if err != nil {
-		return 0, err
+		return false, err
 	}
 	defer s1.Close()
 
 	itemUpd := `UPDATE items SET last_loaded = ?, last_status = ? WHERE id = ?`
 	s2, err := c.Prepare(itemUpd)
 	if err != nil {
-		return 0, err
+		return false, err
 	}
 
 	link := it.URL.String()
@@ -167,24 +167,28 @@ func LoadItem(it Item, c *sql.DB, basePath string) (int, error) {
 		basePath, _ = filepath.Abs(basePath)
 	}
 
-	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, link, nil)
-	if err != nil {
-		return 0, err
-	}
-	req.Header.Add("User-Agent", "feed-sync//1.0")
+	var data []byte
+	if len(it.Content) == 0 {
 
-	res, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return 0, err
-	}
-	defer res.Body.Close()
-
-	if res.StatusCode == http.StatusOK {
-		data, err := ioutil.ReadAll(res.Body)
+		req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, link, nil)
 		if err != nil {
-			return res.StatusCode, err
+			return false, err
 		}
+		req.Header.Add("User-Agent", "feed-sync//1.0")
 
+		res, err := http.DefaultClient.Do(req)
+		if err != nil {
+			return false, err
+		}
+		defer res.Body.Close()
+
+		it.Status = res.StatusCode
+		if it.Status == http.StatusOK {
+			data, err = ioutil.ReadAll(res.Body)
+			if err != nil {
+				return false, err
+			}
+		}
 		// write received html to path
 		articlePath := path.Join(
 			basePath,
@@ -194,46 +198,51 @@ func LoadItem(it Item, c *sql.DB, basePath string) (int, error) {
 		)
 		if _, err := os.Stat(path.Dir(articlePath)); err != nil && os.IsNotExist(err) {
 			if err = os.MkdirAll(path.Dir(articlePath), 0755); err != nil {
-				return res.StatusCode, err
+				return false, err
 			}
 		}
 		if err = ioutil.WriteFile(articlePath, data, 0644); err != nil {
-			return res.StatusCode, err
+			return false, err
 		}
-
-		_, err = s1.Exec(it.ID, sql.NullString{ String: articlePath, Valid:  len(articlePath) > 0 }, "raw")
+		_, err = s1.Exec(it.ID, sql.NullString{ String: articlePath, Valid: len(articlePath) > 0 }, "raw")
 		if err != nil {
-			return res.StatusCode, err
+			return false, err
 		}
-
-		content, _, err := toReadableHtml(data)
+	} else {
+		raw := it.Content["raw"]
+		data, err = os.ReadFile(raw.Path)
 		if err != nil {
-			return res.StatusCode, err
-		}
-		outPath := path.Join(
-			basePath,
-			OutputDir,
-			strings.TrimSpace(it.Feed.Title),
-			"html",
-			it.Path("html"),
-		)
-		if _, err := os.Stat(path.Dir(outPath)); err != nil && os.IsNotExist(err) {
-			if err = os.MkdirAll(path.Dir(outPath), 0755); err != nil {
-				return res.StatusCode, err
-			}
-		}
-		if err = ioutil.WriteFile(outPath, content, 0644); err != nil {
-			return res.StatusCode, err
-		}
-		_, err = s1.Exec(it.ID, sql.NullString{ String: outPath, Valid:  len(outPath) > 0 }, "html")
-		if err != nil {
-			return res.StatusCode, err
+			return false, err
 		}
 	}
-	if _, err = s2.Exec(time.Now().UTC().Format(time.RFC3339), res.StatusCode, it.ID); err != nil {
-		return res.StatusCode, err
+
+	content, _, err := toReadableHtml(data)
+	if err != nil {
+		return false, err
 	}
-	return res.StatusCode, nil
+	outPath := path.Join(
+		basePath,
+		OutputDir,
+		strings.TrimSpace(it.Feed.Title),
+		"html",
+		it.Path("html"),
+	)
+	if _, err := os.Stat(path.Dir(outPath)); err != nil && os.IsNotExist(err) {
+		if err = os.MkdirAll(path.Dir(outPath), 0755); err != nil {
+			return false, err
+		}
+	}
+	if err = ioutil.WriteFile(outPath, content, 0644); err != nil {
+		return false, err
+	}
+	_, err = s1.Exec(it.ID, sql.NullString{ String: outPath, Valid: len(outPath) > 0 }, "html")
+	if err != nil {
+		return false, err
+	}
+	if _, err = s2.Exec(time.Now().UTC().Format(time.RFC3339), it.Status, it.ID); err != nil {
+		return false, err
+	}
+	return true, nil
 }
 
 func GetFeeds(c *sql.DB) ([]Feed, error) {
@@ -272,10 +281,14 @@ func GetFeeds(c *sql.DB) ([]Feed, error) {
 
 func GetNonFetchedItems(c *sql.DB) ([]Item, error) {
 	sel := `
-SELECT items.id, items.feed_index, feeds.title AS feed_title, items.title AS title, items.url FROM items
+SELECT 
+       items.id, items.feed_index, feeds.title AS feed_title, items.title AS title, items.url, c.id, c.type, c.path 
+FROM items
 INNER JOIN feeds ON feeds.id = items.feed_id
-LEFT JOIN contents c ON items.id = c.item_id AND c.type = 'raw'
-WHERE c.id IS NULL GROUP BY items.id ORDER BY items.feed_index ASC;`
+LEFT JOIN contents c ON items.id = c.item_id AND c.type  = 'raw'
+LEFT JOIN contents html ON items.id = html.item_id AND html.type = 'html'
+WHERE html.id IS NULL
+ORDER BY items.feed_index ASC;`
 	s, err := c.Query(sel)
 	if err != nil {
 		return nil, err
@@ -286,17 +299,26 @@ WHERE c.id IS NULL GROUP BY items.id ORDER BY items.feed_index ASC;`
 	for s.Next() {
 		it := Item{}
 		var (
-			link      string
-			feedIndex sql.NullInt32
+			link                 string
+			feedIndex, contentId sql.NullInt32
+			cTyp, cPath          sql.NullString
 		)
 
-		err := s.Scan(&it.ID, &feedIndex, &it.Feed.Title, &it.Title, &link)
+		err := s.Scan(&it.ID, &feedIndex, &it.Feed.Title, &it.Title, &link, &contentId, &cTyp, &cPath)
 		if err != nil {
 			continue
 		}
 		it.URL, _ = url.Parse(link)
 		if feedIndex.Valid {
 			it.FeedIndex = int(feedIndex.Int32)
+		}
+		if contentId.Valid {
+			it.Content = make(map[string]Content)
+			it.Content["raw"] = Content{
+				ID: int(contentId.Int32),
+				Type: cTyp.String,
+				Path: cPath.String,
+			}
 		}
 
 		all = append(all, it)

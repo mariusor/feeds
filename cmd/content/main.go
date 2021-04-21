@@ -4,7 +4,6 @@ import (
 	"context"
 	"flag"
 	"log"
-	"net/http"
 	"os"
 	"path"
 	"time"
@@ -56,11 +55,11 @@ func main() {
 		for j := i; j < i+chunkSize && j < len(all); j++ {
 			it := all[j]
 			g.Go(func() error {
-				status, err := feeds.LoadItem(it, c, basePath)
+				status, err := feeds.LoadItem(&it, c, basePath)
 				if err != nil {
 					log.Printf("Error: %s", err.Error())
 				}
-				log.Printf("Loaded[%5d] %s [%s]", it.FeedIndex, it.URL.String(), http.StatusText(status))
+				log.Printf("Loaded[%5d] %s [%t]", it.FeedIndex, it.URL.String(), status)
 				return err
 			})
 			time.Sleep(defaultSleepAfterBatch)
