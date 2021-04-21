@@ -271,12 +271,12 @@ func GetFeeds(c *sql.DB) ([]Feed, error) {
 }
 
 func GetNonFetchedItems(c *sql.DB) ([]Item, error) {
-	sql := `
+	sel := `
 SELECT items.id, items.feed_index, feeds.title AS feed_title, items.title AS title, items.url FROM items
 INNER JOIN feeds ON feeds.id = items.feed_id
 LEFT JOIN contents c ON items.id = c.item_id AND c.type = 'raw'
 WHERE c.id IS NULL GROUP BY items.id ORDER BY items.feed_index ASC;`
-	s, err := c.Query(sql)
+	s, err := c.Query(sel)
 	if err != nil {
 		return nil, err
 	}
@@ -285,13 +285,19 @@ WHERE c.id IS NULL GROUP BY items.id ORDER BY items.feed_index ASC;`
 	all := make([]Item, 0)
 	for s.Next() {
 		it := Item{}
-		var link string
+		var (
+			link      string
+			feedIndex sql.NullInt32
+		)
 
-		err := s.Scan(&it.ID, &it.FeedIndex, &it.Feed.Title, &it.Title, &link)
+		err := s.Scan(&it.ID, &feedIndex, &it.Feed.Title, &it.Title, &link)
 		if err != nil {
 			continue
 		}
 		it.URL, _ = url.Parse(link)
+		if feedIndex.Valid {
+			it.FeedIndex = int(feedIndex.Int32)
+		}
 
 		all = append(all, it)
 	}
@@ -357,14 +363,14 @@ GROUP BY i.id, d.type, d.id ORDER BY i.id;`, strings.Join(wheres, " OR "))
 }
 
 func GetContentsForEbook(c *sql.DB) ([]Item, error) {
-	sql := `SELECT items.id, items.feed_index, feeds.title, items.title, items.author FROM items
+	sel := `SELECT items.id, items.feed_index, feeds.title, items.title, items.author FROM items
     INNER JOIN feeds ON feeds.id = items.feed_id
     INNER JOIN contents AS html ON items.id = html.item_id AND html.type = 'html'
     LEFT JOIN contents AS epub ON items.id = epub.item_id AND epub.type = 'epub'
     LEFT JOIN contents AS mobi ON items.id = mobi.item_id AND mobi.type = 'mobi'
 WHERE epub.path IS NULL OR mobi.path IS NULL;`
 
-	s1, err := c.Query(sql)
+	s1, err := c.Query(sel)
 	if err != nil {
 		return nil, err
 	}
@@ -374,19 +380,22 @@ WHERE epub.path IS NULL OR mobi.path IS NULL;`
 	itemIds := make([]string, 0)
 	for s1.Next() {
 		var (
-			id, feedIndex                                int
+			id                       int
 			feedTitle, title, author string
-			cont                                         Item
-			ok                                           bool
+			feedIndex                sql.NullInt32
+			cont                     Item
+			ok                       bool
 		)
 		s1.Scan(&id, &feedIndex, &feedTitle, &title, &author)
 		if cont, ok = all[id]; !ok || cont.ID != id {
 			cont = Item{
 				ID: id, 
-				FeedIndex: feedIndex,
 				Title: title,
 				Author: author,
 				Feed: Feed{Title: feedTitle},
+			}
+			if feedIndex.Valid {
+				cont.FeedIndex = int(feedIndex.Int32)
 			}
 		}
 		itemIds = append(itemIds, fmt.Sprintf("%d", id))
@@ -426,11 +435,11 @@ WHERE epub.path IS NULL OR mobi.path IS NULL;`
 }
 
 func GetItemsByFeedAndType(c *sql.DB, f Feed, ext string) ([]Item, error) {
-	sql := `SELECT items.id, feeds.title, items.title, items.author, items.feed_index FROM items 
+	sel := `SELECT items.id, feeds.title, items.title, items.author, items.feed_index FROM items 
 INNER JOIN feeds ON feeds.id = items.feed_id 
 WHERE items.feed_id = ? ORDER BY items.feed_index ASC;`
 
-	s, err := c.Query(sql, f.ID)
+	s, err := c.Query(sel, f.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -440,16 +449,19 @@ WHERE items.feed_id = ? ORDER BY items.feed_index ASC;`
 	itemIds := make([]string, 0)
 	for s.Next() {
 		var (
-			id, feedIndex            int
+			id                       int
+			feedIndex                sql.NullInt32
 			feedTitle, title, author string
 		)
 		s.Scan(&id, &feedTitle, &title, &author, &feedIndex)
 		it := Item{
 			ID: id,
-			FeedIndex: feedIndex,
 			Title: title,
 			Author: author,
 			Feed: Feed{Title: feedTitle},
+		}
+		if feedIndex.Valid {
+			it.FeedIndex = int(feedIndex.Int32)
 		}
 		itemIds = append(itemIds, fmt.Sprintf("%d", id))
 		all = append(all, it)
