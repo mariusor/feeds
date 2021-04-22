@@ -620,7 +620,7 @@ type Subscription struct {
 func SaveSubscriptions(c *sql.DB, d Destination, feeds ...Feed) error {
 	for _, f := range feeds {
 		ins := `INSERT INTO subscriptions (feed_id, destination_id) VALUES (?, ?)`
-		if _, err := c.Exec(ins, d.ID, f.ID); err != nil {
+		if _, err := c.Exec(ins, f.ID, d.ID); err != nil {
 			return err
 		}
 	}
