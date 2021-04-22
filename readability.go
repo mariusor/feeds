@@ -12,10 +12,10 @@ func ToReadableHtml(content []byte, outPath string) error {
 	if err != nil {
 		return err
 	}
-	doc.WhitelistTags = append(doc.WhitelistTags, "h1", "h2", "h3", "h4", "h5", "h6", "img", "hr")
 	doc.RemoveUnlikelyCandidates = true
 	doc.EnsureTitleInArticle = true
-	doc.WhitelistTags = []string {"table", "tr", "td", "th", "tbody", "tcol"}
+	doc.WhitelistTags = append(doc.WhitelistTags, "h1", "h2", "h3", "h4", "h5", "h6", "img", "hr")
+	doc.WhitelistTags = append(doc.WhitelistTags, "table", "tr", "td", "th", "tbody", "tcol")
 	doc.WhitelistAttrs["img"] = []string{"src", "title", "alt"}
 	//doc.WhitelistAttrs["p"] = []string{"style"}
 
