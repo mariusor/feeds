@@ -24,7 +24,8 @@ func ToReadableHtml(content []byte, outPath string) error {
 			return err
 		}
 	}
-	if err = ioutil.WriteFile(outPath, content, 0644); err != nil {
+	cont := doc.Content()
+	if err = ioutil.WriteFile(outPath, []byte(cont), 0644); err != nil {
 		return err
 	}
 	return nil
