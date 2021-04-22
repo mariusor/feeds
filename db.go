@@ -167,9 +167,7 @@ func LoadItem(it *Item, c *sql.DB, basePath string) (bool, error) {
 		basePath, _ = filepath.Abs(basePath)
 	}
 
-	var data []byte
 	if len(it.Content) == 0 {
-
 		req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, link, nil)
 		if err != nil {
 			return false, err
@@ -183,19 +181,17 @@ func LoadItem(it *Item, c *sql.DB, basePath string) (bool, error) {
 		defer res.Body.Close()
 
 		it.Status = res.StatusCode
+
+		var data []byte
 		if it.Status == http.StatusOK {
 			data, err = ioutil.ReadAll(res.Body)
 			if err != nil {
 				return false, err
 			}
 		}
+
 		// write received html to path
-		articlePath := path.Join(
-			basePath,
-			HtmlDir,
-			strings.TrimSpace(it.Feed.Title),
-			it.Path("html"),
-		)
+		articlePath := path.Join(basePath, HtmlDir, strings.TrimSpace(it.Feed.Title), it.Path("html"))
 		if _, err := os.Stat(path.Dir(articlePath)); err != nil && os.IsNotExist(err) {
 			if err = os.MkdirAll(path.Dir(articlePath), 0755); err != nil {
 				return false, err
@@ -204,41 +200,11 @@ func LoadItem(it *Item, c *sql.DB, basePath string) (bool, error) {
 		if err = ioutil.WriteFile(articlePath, data, 0644); err != nil {
 			return false, err
 		}
-		_, err = s1.Exec(it.ID, sql.NullString{ String: articlePath, Valid: len(articlePath) > 0 }, "raw")
-		if err != nil {
-			return false, err
-		}
-	} else {
-		raw := it.Content["raw"]
-		data, err = os.ReadFile(raw.Path)
-		if err != nil {
+		if _, err = s1.Exec(it.ID, sql.NullString{ String: articlePath, Valid: len(articlePath) > 0 }, "raw"); err != nil {
 			return false, err
 		}
 	}
 
-	content, _, err := toReadableHtml(data)
-	if err != nil {
-		return false, err
-	}
-	outPath := path.Join(
-		basePath,
-		OutputDir,
-		strings.TrimSpace(it.Feed.Title),
-		"html",
-		it.Path("html"),
-	)
-	if _, err := os.Stat(path.Dir(outPath)); err != nil && os.IsNotExist(err) {
-		if err = os.MkdirAll(path.Dir(outPath), 0755); err != nil {
-			return false, err
-		}
-	}
-	if err = ioutil.WriteFile(outPath, content, 0644); err != nil {
-		return false, err
-	}
-	_, err = s1.Exec(it.ID, sql.NullString{ String: outPath, Valid: len(outPath) > 0 }, "html")
-	if err != nil {
-		return false, err
-	}
 	if _, err = s2.Exec(time.Now().UTC().Format(time.RFC3339), it.Status, it.ID); err != nil {
 		return false, err
 	}
@@ -383,15 +349,23 @@ GROUP BY i.id, d.type, d.id ORDER BY i.id;`, strings.Join(wheres, " OR "))
 	return all, nil
 }
 
-func GetContentsForEbook(c *sql.DB) ([]Item, error) {
-	sel := `SELECT items.id, items.feed_index, feeds.title, items.title, items.author FROM items
-    INNER JOIN feeds ON feeds.id = items.feed_id
-    INNER JOIN contents AS html ON items.id = html.item_id AND html.type = 'html'
-    LEFT JOIN contents AS epub ON items.id = epub.item_id AND epub.type = 'epub'
-    LEFT JOIN contents AS mobi ON items.id = mobi.item_id AND mobi.type = 'mobi'
-WHERE epub.path IS NULL OR mobi.path IS NULL;`
+func GetContentsForEbook(c *sql.DB, types ...string) ([]Item, error) {
+	joins := make([]string, 0)
+	cols := make([]string, 0)
+	wheres := make([]string, 0)
+	for _, typ := range types {
+		cols = append(cols, fmt.Sprintf("%s.path", typ))
+		joins = append(joins, fmt.Sprintf("LEFT JOIN contents AS %s ON items.id = %s.item_id AND %s.type = '%s' \n", typ, typ, typ, typ))
+		wheres = append(wheres, fmt.Sprintf("%s.path IS NULL", typ))
 
-	s1, err := c.Query(sel)
+	}
+
+	sel := `SELECT items.id, items.feed_index, feeds.title, items.title, items.author, raw.id, raw.type, raw.path, %s FROM items
+	INNER JOIN feeds ON feeds.id = items.feed_id
+	INNER JOIN contents AS raw ON items.id = raw.item_id AND raw.type = 'raw'
+%s WHERE %s`
+	q := fmt.Sprintf(sel, strings.Join(cols, ", "), strings.Join(joins, ""), strings.Join(wheres, " OR "))
+	s1, err := c.Query(q)
 	if err != nil {
 		return nil, err
 	}
@@ -403,24 +377,39 @@ WHERE epub.path IS NULL OR mobi.path IS NULL;`
 		var (
 			id                       int
 			feedTitle, title, author string
-			feedIndex                sql.NullInt32
-			cont                     Item
+			feedIndex, rawId         sql.NullInt32
+			it                       Item
 			ok                       bool
+			rawType, rawPath        sql.NullString
 		)
-		s1.Scan(&id, &feedIndex, &feedTitle, &title, &author)
-		if cont, ok = all[id]; !ok || cont.ID != id {
-			cont = Item{
+		params := []interface{} { &id, &feedIndex, &feedTitle, &title, &author, &rawId, &rawType, &rawPath}
+		paths := make(map[string]sql.NullString)
+		for _, typ := range types {
+			params = append(params, interface{}(paths[typ]))
+		}
+		s1.Scan(params...)
+		if it, ok = all[id]; !ok || it.ID != id {
+			it = Item{
 				ID: id, 
 				Title: title,
 				Author: author,
 				Feed: Feed{Title: feedTitle},
 			}
 			if feedIndex.Valid {
-				cont.FeedIndex = int(feedIndex.Int32)
+				it.FeedIndex = int(feedIndex.Int32)
+			}
+			if rawId.Valid {
+				it.Content = make(map[string]Content)
+				it.Content["raw"] = Content{ID: int(rawId.Int32), Type: rawType.String, Path: rawPath.String}
+			}
+			for _, typ := range types {
+				if c, ok := paths[typ]; ok && c.Valid {
+					it.Content[typ] = Content{Type: typ, Path: c.String}
+				}
 			}
 		}
 		itemIds = append(itemIds, fmt.Sprintf("%d", id))
-		all[cont.ID] = cont
+		all[it.ID] = it
 	}
 	contWhere := strings.Join(itemIds, ", ")
 	selCont := fmt.Sprintf(`SELECT id, item_id, path, type from contents where item_id in (%s) and type != 'raw';`, contWhere)
