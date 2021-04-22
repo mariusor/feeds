@@ -247,14 +247,11 @@ func GetFeeds(c *sql.DB) ([]Feed, error) {
 
 func GetNonFetchedItems(c *sql.DB) ([]Item, error) {
 	sel := `
-SELECT 
-       items.id, items.feed_index, feeds.title AS feed_title, items.title AS title, items.url, c.id, c.type, c.path 
+SELECT items.id, items.feed_index, feeds.title AS feed_title, items.title AS title, items.url, c.id, c.type, c.path 
 FROM items
 INNER JOIN feeds ON feeds.id = items.feed_id
 LEFT JOIN contents c ON items.id = c.item_id AND c.type  = 'raw'
-LEFT JOIN contents html ON items.id = html.item_id AND html.type = 'html'
-WHERE html.id IS NULL
-ORDER BY items.feed_index ASC;`
+WHERE c.id IS NULL ORDER BY items.feed_index ASC;`
 	s, err := c.Query(sel)
 	if err != nil {
 		return nil, err
