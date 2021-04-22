@@ -146,7 +146,7 @@ func main() {
 		log.Printf("Nothing to do, exiting.")
 	}
 
-	insEbookContent := "INSERT INTO contents (item_id, path, type) VALUES (?, ?, ?)"
+	insEbookContent := "INSERT INTO contents (item_id, path, type) VALUES (?, ?, ?) ON CONFLICT DO NOTHING;"
 	s, err := c.Prepare(insEbookContent)
 	if err != nil {
 		log.Fatalf("Error: %s", err)
@@ -178,14 +178,21 @@ func main() {
 	}
 }
 
+func fileExists(file string) bool {
+	_, err := os.Stat(file)
+	return err == nil
+}
 
 func generateContent(item *feeds.Item, basePath string, overwrite bool) error {
 	if err := generateEbook("html", basePath, item, overwrite); err != nil {
 		log.Printf("Unable to generate path: %s", err.Error())
 	}
 	for _, typ := range validEbookTypes {
-		if typ == "html" {
-			continue
+		if c, ok := item.Content[typ]; ok {
+			if fileExists(c.Path) {
+				continue
+			}
+			delete(item.Content, typ)
 		}
 		if err := generateEbook(typ, basePath, item, overwrite); err != nil {
 			log.Printf("Unable to generate path: %s", err.Error())
