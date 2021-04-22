@@ -116,7 +116,7 @@ func createTables(c *sql.DB) error {
 		last_message text,
 		flags INT DEFAULT 0,
 		FOREIGN KEY(item_id) REFERENCES items(id),
-		FOREIGN KEY(destination_id) REFERENCES destinations(id),
+		FOREIGN KEY(destination_id) REFERENCES destinations(id) ON DELETE CASCADE,
 		CONSTRAINT item_destination_uindex UNIQUE (item_id, destination_id)
 	);`
 	if _, err := c.Exec(targets); err != nil {
