@@ -91,3 +91,11 @@ insert into items (url, title, feed_id, author, feed_index) values ('https://pal
 insert into items (url, title, feed_id, author, feed_index) values ('https://palewebserial.wordpress.com/2021/03/16/shaking-hands-9-11', 'Pale: 9.11 - Avery', 6, 'Wildbow', 91);
 insert into items (url, title, feed_id, author, feed_index) values ('https://palewebserial.wordpress.com/2021/03/20/shaking-hands-9-12', 'Pale: 9.12 - Lucy', 6, 'Wildbow', 92);
 insert into items (url, title, feed_id, author, feed_index) values ('https://palewebserial.wordpress.com/2021/03/23/shaking-hands-9-z', 'Pale: 9.z - Interlude', 6, 'Wildbow', 93);
+insert into items (url, title, feed_id, author, feed_index) values ('https://palewebserial.wordpress.com/2021/03/27/one-after-another-10-1/', 'Pale: 10.1 - Avery', 6, 'Wildbow', 94);
+insert into items (url, title, feed_id, author, feed_index) values ('https://palewebserial.wordpress.com/2021/03/30/one-after-another-10-a/', 'Pale: 10.a - Interlude', 6, 'Wildbow', 95);
+insert into items (url, title, feed_id, author, feed_index) values ('https://palewebserial.wordpress.com/2021/04/03/one-after-another-10-b/', 'Pale: 10.b - Interlude', 6, 'Wildbow', 96);
+insert into items (url, title, feed_id, author, feed_index) values ('https://palewebserial.wordpress.com/2021/04/06/one-after-another-10-c/', 'Pale: 10.c - Interlude', 6, 'Wildbow', 97);
+insert into items (url, title, feed_id, author, feed_index) values ('https://palewebserial.wordpress.com/2021/04/10/one-after-another-10-2/', 'Pale: 10.2 - Lucy', 6, 'Wildbow', 98);
+insert into items (url, title, feed_id, author, feed_index) values ('https://palewebserial.wordpress.com/2021/04/13/one-after-another-10-d/', 'Pale: 10.d - Interlude', 6, 'Wildbow', 99);
+insert into items (url, title, feed_id, author, feed_index) values ('https://palewebserial.wordpress.com/2021/04/17/one-after-another-10-e/', 'Pale: 10.e - Interlude', 6, 'Wildbow', 100);
+insert into items (url, title, feed_id, author, feed_index) values ('https://palewebserial.wordpress.com/2021/04/20/one-after-another-10-3/', 'Pale: 10.3 - Lucy', 6, 'Wildbow', 101);
