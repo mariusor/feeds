@@ -61,3 +61,17 @@ INSERT INTO items (url, title, feed_id, author, feed_index) values ('https://pyr
 INSERT INTO items (url, title, feed_id, author, feed_index) values ('https://pyrebound.wordpress.com/2020/03/08/thirteen-a-scholar-in-the-shadows/', 'Pyrebound - 13.1', 3, 'theredsheep', 61);
 INSERT INTO items (url, title, feed_id, author, feed_index) values ('https://pyrebound.wordpress.com/2020/03/15/chapter-13-2/', 'Pyrebound - 13.2', 3, 'theredsheep', 62);
 INSERT INTO items (url, title, feed_id, author, feed_index) values ('https://pyrebound.wordpress.com/2020/03/22/chapter-13-3/', 'Pyrebound - 13.3', 3, 'theredsheep', 63);
+INSERT INTO items (url, title, feed_id, author, feed_index) values ('https://pyrebound.wordpress.com/2020/03/29/chapter-13-4/', 'Pyrebound - 13.4', 3, 'theredsheep', 64);
+INSERT INTO items (url, title, feed_id, author, feed_index) values ('https://pyrebound.wordpress.com/2020/04/05/chapter-13-5/', 'Pyrebound - 13.5', 3, 'theredsheep', 65);
+INSERT INTO items (url, title, feed_id, author, feed_index) values ('https://pyrebound.wordpress.com/2020/04/25/fourteen-a-bondsman-of-fate/', 'Pyrebound - 14.1', 3, 'theredsheep', 66);
+INSERT INTO items (url, title, feed_id, author, feed_index) values ('https://pyrebound.wordpress.com/2020/05/03/chapter-14-2/', 'Pyrebound - 14.2', 3, 'theredsheep', 67);
+INSERT INTO items (url, title, feed_id, author, feed_index) values ('https://pyrebound.wordpress.com/2020/05/05/chapter-14-3/', 'Pyrebound - 14.3', 3, 'theredsheep', 68);
+INSERT INTO items (url, title, feed_id, author, feed_index) values ('https://pyrebound.wordpress.com/2020/06/04/chapter-14-4/', 'Pyrebound - 14.4', 3, 'theredsheep', 69);
+INSERT INTO items (url, title, feed_id, author, feed_index) values ('https://pyrebound.wordpress.com/2020/07/05/chapter-14-5/', 'Pyrebound - 14.5', 3, 'theredsheep', 70);
+INSERT INTO items (url, title, feed_id, author, feed_index) values ('https://pyrebound.wordpress.com/2020/07/23/fifteen-a-prophet-in-power/', 'Pyrebound - 15.1', 3, 'theredsheep', 71);
+INSERT INTO items (url, title, feed_id, author, feed_index) values ('https://pyrebound.wordpress.com/2020/08/10/chapter-15-2/', 'Pyrebound - 15.2', 3, 'theredsheep', 72);
+INSERT INTO items (url, title, feed_id, author, feed_index) values ('https://pyrebound.wordpress.com/2020/08/24/chapter-15-3/', 'Pyrebound - 15.3', 3, 'theredsheep', 73);
+INSERT INTO items (url, title, feed_id, author, feed_index) values ('https://pyrebound.wordpress.com/2020/12/25/chapter-15-4/', 'Pyrebound - 15.4', 3, 'theredsheep', 74);
+INSERT INTO items (url, title, feed_id, author, feed_index) values ('https://pyrebound.wordpress.com/2021/01/22/chapter-15-5/', 'Pyrebound - 15.5', 3, 'theredsheep', 75);
+INSERT INTO items (url, title, feed_id, author, feed_index) values ('https://pyrebound.wordpress.com/2021/03/19/sixteen-a-champion-in-battle/', 'Pyrebound - 16.1', 3, 'theredsheep', 76);
+INSERT INTO items (url, title, feed_id, author, feed_index) values ('https://pyrebound.wordpress.com/2021/04/20/chapter-16-2/', 'Pyrebound - 16.2', 3, 'theredsheep', 77);
