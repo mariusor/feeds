@@ -260,8 +260,10 @@ func (t target) Handler(w http.ResponseWriter, r *http.Request) {
 		s.Values["kindle"] = kindle
 		t.Destination = kindle
 	}
-	if err = feeds.SaveSubscriptions(c, *dest, t.Feeds...); err != nil {
-		errorTpl.Execute(w, err)
+	if dest != nil {
+		if err = feeds.SaveSubscriptions(c, *dest, t.Feeds...); err != nil {
+			errorTpl.Execute(w, err)
+		}
 	}
 	t.r.Write(w, r, s, t)
 }
