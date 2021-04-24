@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 	"path"
+	"sync"
 	"time"
 
 	"github.com/mariusor/feeds"
@@ -49,13 +50,31 @@ func main() {
 	if err != nil {
 		log.Printf("Error: %s", err)
 	}
+
+	maxFailureCount := 3
+	failures := make(map[int]int)
+	m := sync.Mutex{}
+
 	g, _ := errgroup.WithContext(context.Background())
 	for i := 0; i < len(all); i += chunkSize {
 		for j := i; j < i+chunkSize && j < len(all); j++ {
 			disp := all[j]
+			if failures[disp.Destination.ID] > maxFailureCount {
+				log.Printf("Skipping destination %s[%d], too many failures when dispatching", disp.Destination.Type, disp.Destination.ID)
+				continue
+			}
 			g.Go(func() error {
-				defer time.Sleep(defaultSleepAfterBatch)
-				return Dispatch(c, disp)
+				defer func() {
+					m.Unlock()
+					time.Sleep(defaultSleepAfterBatch)
+				}()
+				m.Lock()
+				if err := Dispatch(c, disp); err != nil {
+					log.Printf("Error: %s", err.Error())
+					failures[disp.Destination.ID]++
+					return err
+				}
+				return nil
 			})
 		}
 		if err := g.Wait(); err != nil {
