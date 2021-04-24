@@ -255,8 +255,8 @@ SELECT items.id, items.feed_index, feeds.id, feeds.title AS feed_title, items.ti
 FROM items
 INNER JOIN feeds ON feeds.id = items.feed_id
 LEFT JOIN contents c ON items.id = c.item_id AND c.type  = 'raw'
-WHERE c.id IS NULL ORDER BY items.feed_index ASC;`
-	s, err := c.Query(sel)
+WHERE c.id IS NULL and feeds.flags != ? ORDER BY items.feed_index ASC;`
+	s, err := c.Query(sel, FlagsDisabled)
 	if err != nil {
 		return nil, err
 	}
