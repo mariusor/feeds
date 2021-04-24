@@ -246,7 +246,7 @@ func GetFeeds(c *sql.DB) ([]Feed, error) {
 
 func GetNonFetchedItems(c *sql.DB) ([]Item, error) {
 	sel := `
-SELECT items.id, items.feed_index, feeds.title AS feed_title, items.title AS title, items.url, c.id, c.type, c.path 
+SELECT items.id, items.feed_index, feeds.id, feeds.title AS feed_title, items.title AS title, items.url, c.id, c.type, c.path 
 FROM items
 INNER JOIN feeds ON feeds.id = items.feed_id
 LEFT JOIN contents c ON items.id = c.item_id AND c.type  = 'raw'
@@ -266,7 +266,7 @@ WHERE c.id IS NULL ORDER BY items.feed_index ASC;`
 			cTyp, cPath          sql.NullString
 		)
 
-		err := s.Scan(&it.ID, &feedIndex, &it.Feed.Title, &it.Title, &link, &contentId, &cTyp, &cPath)
+		err := s.Scan(&it.ID, &feedIndex, &it.Feed.ID, &it.Feed.Title, &it.Title, &link, &contentId, &cTyp, &cPath)
 		if err != nil {
 			continue
 		}
@@ -277,7 +277,7 @@ WHERE c.id IS NULL ORDER BY items.feed_index ASC;`
 		if contentId.Valid {
 			it.Content = make(map[string]Content)
 			it.Content["raw"] = Content{
-				ID: int(contentId.Int32),
+				ID:   int(contentId.Int32),
 				Type: cTyp.String,
 				Path: cPath.String,
 			}
@@ -309,7 +309,8 @@ INNER JOIN feeds f ON i.feed_id = f.id
 INNER JOIN subscriptions s ON f.id = s.feed_id
 INNER JOIN destinations d ON d.id = s.destination_id
 INNER JOIN contents c ON c.item_id = i.id AND (%s)
-LEFT JOIN targets t ON t.item_id = i.id AND (t.id IS NULL or t.last_status = 0)
+LEFT JOIN targets t ON t.item_id = i.id AND t.destination_id = d.id  
+WHERE t.id IS NULL OR (t.id IS NOT NULL AND t.last_status = 0)
 GROUP BY i.id, d.type, d.id ORDER BY i.id;`, strings.Join(wheres, " OR "))
 
 	s, err := c.Query(sel, params...)
@@ -376,9 +377,9 @@ func GetContentsForEbook(c *sql.DB, types ...string) ([]Item, error) {
 			feedIndex, rawId         sql.NullInt32
 			it                       Item
 			ok                       bool
-			rawType, rawPath        sql.NullString
+			rawType, rawPath         sql.NullString
 		)
-		params := []interface{} { &id, &feedIndex, &feedTitle, &title, &author, &rawId, &rawType, &rawPath}
+		params := []interface{}{&id, &feedIndex, &feedTitle, &title, &author, &rawId, &rawType, &rawPath}
 		paths := make(map[string]sql.NullString)
 		for _, typ := range types {
 			params = append(params, interface{}(paths[typ]))
@@ -386,10 +387,10 @@ func GetContentsForEbook(c *sql.DB, types ...string) ([]Item, error) {
 		s1.Scan(params...)
 		if it, ok = all[id]; !ok || it.ID != id {
 			it = Item{
-				ID: id, 
-				Title: title,
+				ID:     id,
+				Title:  title,
 				Author: author,
-				Feed: Feed{Title: feedTitle},
+				Feed:   Feed{Title: feedTitle},
 			}
 			if feedIndex.Valid {
 				it.FeedIndex = int(feedIndex.Int32)
@@ -461,10 +462,10 @@ WHERE items.feed_id = ? ORDER BY items.feed_index ASC;`
 		)
 		s.Scan(&id, &feedTitle, &title, &author, &feedIndex)
 		it := Item{
-			ID: id,
-			Title: title,
+			ID:     id,
+			Title:  title,
 			Author: author,
-			Feed: Feed{Title: feedTitle},
+			Feed:   Feed{Title: feedTitle},
 		}
 		if feedIndex.Valid {
 			it.FeedIndex = int(feedIndex.Int32)
@@ -484,8 +485,8 @@ WHERE items.feed_id = ? ORDER BY items.feed_index ASC;`
 	for s2.Next() {
 		var (
 			inx, id, itemId int
-			path, typ  string
-			item Item
+			path, typ       string
+			item            Item
 		)
 		s2.Scan(&id, &itemId, &path, &typ)
 		for i, it := range all {
@@ -512,10 +513,10 @@ type User struct {
 }
 
 type Destination struct {
-	ID int
-	Type string
+	ID          int
+	Type        string
 	Credentials []byte
-	Flags int
+	Flags       int
 }
 
 func loadMyKindleDestination(c *sql.DB, d MyKindleDestination) (*Destination, error) {
@@ -601,7 +602,7 @@ func SaveDestination(c *sql.DB, d TargetDestination) (*Destination, error) {
 		dd = &Destination{
 			Type:        d.Type(),
 			Credentials: creds,
-			Flags:  FlagsNone,
+			Flags:       FlagsNone,
 		}
 		return insertDestination(c, *dd)
 	}
@@ -610,10 +611,10 @@ func SaveDestination(c *sql.DB, d TargetDestination) (*Destination, error) {
 }
 
 type Subscription struct {
-	ID int
-	Flags int
+	ID          int
+	Flags       int
 	Destination Destination
-	Feed Feed
+	Feed        Feed
 }
 
 func SaveSubscriptions(c *sql.DB, d Destination, feeds ...Feed) error {
@@ -668,5 +669,8 @@ func SaveTarget(c *sql.DB, tt DispatchItem) error {
 	if t == nil {
 		return insertTarget(c, tt)
 	}
+	t.Flags = tt.Flags
+	t.LastMessage = tt.LastMessage
+	t.LastStatus = tt.LastStatus
 	return updateTarget(c, *t)
 }

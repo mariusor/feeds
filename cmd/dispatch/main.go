@@ -1,20 +1,28 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"flag"
 	"fmt"
 	"log"
 	"os"
 	"path"
+	"time"
 
 	"github.com/mariusor/feeds"
+	"golang.org/x/sync/errgroup"
+)
+
+const (
+	chunkSize              = 5
+	defaultSleepAfterBatch = 200 * time.Millisecond
 )
 
 func main() {
 	var (
 		basePath string
-		verbose bool
+		verbose  bool
 	)
 	flag.StringVar(&basePath, "path", "/tmp", "Base path")
 	flag.BoolVar(&verbose, "verbose", false, "Output debugging messages")
@@ -41,16 +49,24 @@ func main() {
 	if err != nil {
 		log.Printf("Error: %s", err)
 	}
-	for _, disp := range all {
-		if err := Dispatch(c, disp); err != nil {
-			log.Printf("Error dispatching: %s", err)
+	g, _ := errgroup.WithContext(context.Background())
+	for i := 0; i < len(all); i += chunkSize {
+		for j := i; j < i+chunkSize && j < len(all); j++ {
+			disp := all[j]
+			g.Go(func() error {
+				defer time.Sleep(defaultSleepAfterBatch)
+				return Dispatch(c, disp)
+			})
+		}
+		if err := g.Wait(); err != nil {
+			log.Fatal(err)
 		}
 	}
 }
 
 func Dispatch(c *sql.DB, disp feeds.DispatchItem) error {
 	var (
-		err error
+		err    error
 		status bool
 	)
 	switch disp.Destination.Type {

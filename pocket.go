@@ -3,19 +3,21 @@ package feeds
 import (
 	"encoding/json"
 	"fmt"
+	"log"
+	"path"
+
 	"github.com/motemen/go-pocket/api"
 	"github.com/motemen/go-pocket/auth"
-	"log"
 )
 
 var PocketConsumerKey = ""
 
 type ServicePocket struct {
-	AppName       string `json:"app_name"`
-	ConsumerKey   string `json:"consumer_key"`
+	AppName     string `json:"app_name"`
+	ConsumerKey string `json:"consumer_key"`
 }
 
-func(p ServicePocket) Label()string {
+func (p ServicePocket) Label() string {
 	return "Pocket"
 }
 
@@ -69,8 +71,8 @@ func DispatchToPocket(disp DispatchItem) (bool, error) {
 	opt.Title = disp.Item.Title
 	opt.Tags = Slug(disp.Item.Feed.Title)
 
+	log.Printf("Sending %s %s to %s %s", cont.Type, path.Base(cont.Path), target.Username, target.Type())
 	client := api.NewClient(target.Service.ConsumerKey, target.AccessToken)
-	log.Printf("Sending %s %s to %s %s", cont.Type, cont.Path, target.Username, target.Type())
 	if err := client.Add(opt); err != nil {
 		return false, err
 	}
