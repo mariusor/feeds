@@ -1,10 +1,11 @@
 package feeds
 
 import (
-	"github.com/mariusor/go-readability"
 	"io/ioutil"
 	"os"
 	"path"
+
+	"github.com/mariusor/go-readability"
 )
 
 func ToReadableHtml(content []byte, outPath string) error {

@@ -82,6 +82,7 @@ func createTables(c *sql.DB) error {
 		item_id INTEGER,
 		path TEXT,
 		type TEXT,
+		created TEXT,
 		FOREIGN KEY(item_id) REFERENCES items(id),
 		CONSTRAINT contents_uindex UNIQUE (item_id, type)
 	);`
@@ -102,6 +103,7 @@ func createTables(c *sql.DB) error {
 		id INTEGER PRIMARY KEY ASC,
 		type TEXT,
 		credentials TEXT,
+		created TEXT,
 		flags INT DEFAULT 0
 	);`
 	if _, err := c.Exec(destinations); err != nil {
@@ -112,6 +114,7 @@ func createTables(c *sql.DB) error {
 		id INTEGER PRIMARY KEY ASC,
 		destination_id int,
 		item_id int,
+		last_try TEXT,
 		last_status int,
 		last_message text,
 		flags INT DEFAULT 0,
@@ -127,6 +130,7 @@ func createTables(c *sql.DB) error {
 		id INTEGER PRIMARY KEY ASC,
 		feed_id int,
 		destination_id int,
+		created TEXT,
 		flags INT DEFAULT 0,
 		FOREIGN KEY(feed_id) REFERENCES feeds(id),
 		FOREIGN KEY(destination_id) REFERENCES destinations(id) ON DELETE CASCADE,
@@ -299,6 +303,8 @@ type DispatchItem struct {
 	Destination Destination
 }
 
+var subscriptionBackPeriod = 7 * 24 * time.Hour
+
 func GetNonDispatchedItemContentsForDestination(c *sql.DB) ([]DispatchItem, error) {
 	wheres := make([]string, 0)
 	params := make([]interface{}, 0)
@@ -311,8 +317,8 @@ INNER JOIN subscriptions s ON f.id = s.feed_id
 INNER JOIN destinations d ON d.id = s.destination_id
 INNER JOIN contents c ON c.item_id = i.id AND (%s)
 LEFT JOIN dispatched t ON t.item_id = i.id AND t.destination_id = d.id  
-WHERE t.id IS NULL OR (t.id IS NOT NULL AND t.last_status = 0)
-GROUP BY i.id, d.type, d.id ORDER BY i.id;`, strings.Join(wheres, " OR "))
+WHERE date(i.last_loaded) > date(s.created, '-%f hour') AND (t.id IS NULL OR (t.id IS NOT NULL AND t.last_status = 0))
+GROUP BY i.id, d.type, d.id ORDER BY i.id;`, strings.Join(wheres, " OR "), subscriptionBackPeriod.Hours())
 
 	s, err := c.Query(sel, params...)
 	if err != nil {
@@ -517,6 +523,7 @@ type Destination struct {
 	ID          int
 	Type        string
 	Credentials []byte
+	Created     time.Time
 	Flags       int
 }
 
@@ -569,8 +576,8 @@ func loadDestination(c *sql.DB, d DestinationTarget) (*Destination, error) {
 }
 
 func insertDestination(c *sql.DB, d Destination) (*Destination, error) {
-	sql := `INSERT INTO destinations (type, credentials, flags) VALUES(?, ?, ?);`
-	r, err := c.Exec(sql, d.Type, d.Credentials, d.Flags)
+	sql := `INSERT INTO destinations (type, credentials, flags, created) VALUES(?, ?, ?);`
+	r, err := c.Exec(sql, d.Type, d.Credentials, d.Flags, time.Now().UTC().Format(time.RFC3339))
 	if err != nil {
 		return nil, err
 	}
@@ -614,21 +621,23 @@ func SaveDestination(c *sql.DB, d DestinationTarget) (*Destination, error) {
 type Subscription struct {
 	ID          int
 	Flags       int
+	Created     time.Time
 	Destination Destination
 	Feed        Feed
 }
 
 func SaveSubscriptions(c *sql.DB, d Destination, feeds ...Feed) error {
-	ins := `INSERT INTO subscriptions (feed_id, destination_id) VALUES (?, ?) ON CONFLICT DO NOTHING;`
+	ins := `INSERT INTO subscriptions (feed_id, destination_id, created) VALUES (?, ?, ?) ON CONFLICT DO NOTHING;`
 	s, err := c.Prepare(ins)
 	if err != nil {
 		return err
 	}
+	d.Created = time.Now().UTC()
 	for _, f := range feeds {
 		if f.URL == nil {
 			continue
 		}
-		if _, err := s.Exec(f.ID, d.ID); err != nil {
+		if _, err := s.Exec(f.ID, d.ID, d.Created.Format(time.RFC3339)); err != nil {
 			return err
 		}
 	}
@@ -636,16 +645,16 @@ func SaveSubscriptions(c *sql.DB, d Destination, feeds ...Feed) error {
 }
 
 func insertTarget(c *sql.DB, t DispatchItem) error {
-	sql := `INSERT INTO dispatched (destination_id, item_id, flags, last_status, last_message) VALUES(?, ?, ?, ?, ?);`
-	if _, err := c.Exec(sql, t.Destination.ID, t.Item.ID, t.Flags, t.LastStatus, t.LastMessage); err != nil {
+	sql := `INSERT INTO dispatched (destination_id, item_id, flags, last_try, last_status, last_message) VALUES(?, ?, ?, ?, ?);`
+	if _, err := c.Exec(sql, t.Destination.ID, t.Item.ID, t.Flags, time.Now().UTC().Format(time.RFC3339), t.LastStatus, t.LastMessage); err != nil {
 		return err
 	}
 	return nil
 }
 
 func updateTarget(c *sql.DB, t DispatchItem) error {
-	sql := `UPDATE dispatched SET last_status = ?, last_message = ?, flags = ? WHERE id = ?`
-	if _, err := c.Exec(sql, t.LastStatus, t.LastMessage, t.Flags, t.ID); err != nil {
+	sql := `UPDATE dispatched SET last_status = ?, last_message = ?, flags = ?, last_try = ? WHERE id = ?`
+	if _, err := c.Exec(sql, t.LastStatus, t.LastMessage, t.Flags, time.Now().UTC().Format(time.RFC3339), t.ID); err != nil {
 		return err
 	}
 	return nil

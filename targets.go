@@ -1,10 +1,5 @@
 package feeds
 
-type Target struct {
-	Service     DestinationService
-	Destination DestinationTarget
-}
-
 var ValidTargets = map[string]DestinationService{
 	"myk": ServiceMyKindle{},
 	"pocket": ServicePocket{},

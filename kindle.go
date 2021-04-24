@@ -3,10 +3,11 @@ package feeds
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/jordan-wright/email"
 	"log"
-	_ "modernc.org/sqlite"
 	"net/smtp"
+
+	"github.com/jordan-wright/email"
+	_ "modernc.org/sqlite"
 )
 
 var (

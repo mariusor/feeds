@@ -4,8 +4,6 @@ import (
 	"github.com/bmaupin/go-epub"
 )
 
-const EPubDir = "output/epub"
-
 func ToEPub(content []byte, title string, author string, outPath string) error {
 	e := epub.NewEpub(title)
 
