@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"path"
+	"sync"
 	"time"
 
 	"github.com/mariusor/feeds"
@@ -50,19 +51,32 @@ func main() {
 	if len(all) == 0 {
 		log.Printf("Nothing to do, exiting.")
 	}
+	maxFailureCount := 3
+	failures := make(map[int]int)
+	m := sync.Mutex{}
 	g, _ := errgroup.WithContext(context.Background())
 	for i := 0; i < len(all); i += chunkSize {
 		for j := i; j < i+chunkSize && j < len(all); j++ {
 			it := all[j]
+			if failures[it.Feed.ID] > maxFailureCount {
+				log.Printf("Skipping %s, too many failures when loading", it.URL)
+				continue
+			}
 			g.Go(func() error {
+				defer func() {
+					m.Unlock()
+					time.Sleep(defaultSleepAfterBatch)
+				}()
+
+				m.Lock()
 				status, err := feeds.LoadItem(&it, c, basePath)
 				if err != nil {
 					log.Printf("Error: %s", err.Error())
+					failures[it.Feed.ID]++
 				}
 				log.Printf("Loaded[%5d] %s [%t]", it.FeedIndex, it.URL.String(), status)
 				return err
 			})
-			time.Sleep(defaultSleepAfterBatch)
 		}
 		if err := g.Wait(); err != nil {
 			log.Fatal(err)

@@ -180,14 +180,13 @@ func LoadItem(it *Item, c *sql.DB, basePath string) (bool, error) {
 		}
 		defer res.Body.Close()
 
+		if res.StatusCode != http.StatusOK {
+			return false, fmt.Errorf("invalid response received %s", res.Status)
+		}
 		it.Status = res.StatusCode
-
-		var data []byte
-		if it.Status == http.StatusOK {
-			data, err = ioutil.ReadAll(res.Body)
-			if err != nil {
-				return false, err
-			}
+		data, err := ioutil.ReadAll(res.Body)
+		if err != nil {
+			return false, err
 		}
 
 		// write received html to path
@@ -200,7 +199,7 @@ func LoadItem(it *Item, c *sql.DB, basePath string) (bool, error) {
 		if err = ioutil.WriteFile(articlePath, data, 0644); err != nil {
 			return false, err
 		}
-		if _, err = s1.Exec(it.ID, sql.NullString{ String: articlePath, Valid: len(articlePath) > 0 }, "raw"); err != nil {
+		if _, err = s1.Exec(it.ID, sql.NullString{String: articlePath, Valid: len(articlePath) > 0}, "raw"); err != nil {
 			return false, err
 		}
 	}
