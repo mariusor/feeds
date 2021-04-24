@@ -211,7 +211,7 @@ func LoadItem(it *Item, c *sql.DB, basePath string) (bool, error) {
 }
 
 func GetFeeds(c *sql.DB) ([]Feed, error) {
-	sel := `SELECT id, title, author, frequency, last_loaded, url FROM feeds where flags != ?`
+	sel := `SELECT id, title, author, frequency, last_loaded, url, flags FROM feeds where flags != ?`
 	s, err := c.Query(sel, FlagsDisabled)
 	if err != nil {
 		return nil, err
@@ -221,17 +221,18 @@ func GetFeeds(c *sql.DB) ([]Feed, error) {
 	all := make([]Feed, 0)
 	for s.Next() {
 		var (
-			id            int
+			id, flags     int
 			freq          sql.NullInt32
 			title, auth   string
 			link, updated sql.NullString
 		)
-		s.Scan(&id, &title, &auth, &freq, &updated, &link)
+		s.Scan(&id, &title, &auth, &freq, &updated, &link, &flags)
 		f := Feed{
 			ID:        id,
 			Title:     title,
 			Author:    auth,
 			Frequency: time.Duration(freq.Int32) * time.Second,
+			Flags: flags,
 		}
 		if updated.Valid {
 			f.Updated, _ = time.Parse(time.RFC3339Nano, updated.String)
@@ -618,9 +619,16 @@ type Subscription struct {
 }
 
 func SaveSubscriptions(c *sql.DB, d Destination, feeds ...Feed) error {
+	ins := `INSERT INTO subscriptions (feed_id, destination_id) VALUES (?, ?) ON CONFLICT DO NOTHING;`
+	s, err := c.Prepare(ins)
+	if err != nil {
+		return err
+	}
 	for _, f := range feeds {
-		ins := `INSERT INTO subscriptions (feed_id, destination_id) VALUES (?, ?) ON CONFLICT DO NOTHING;`
-		if _, err := c.Exec(ins, f.ID, d.ID); err != nil {
+		if f.URL == nil {
+			continue
+		}
+		if _, err := s.Exec(f.ID, d.ID); err != nil {
 			return err
 		}
 	}

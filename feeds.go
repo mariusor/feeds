@@ -18,6 +18,7 @@ type Feed struct {
 	Author    string
 	Frequency time.Duration
 	Updated   time.Time
+	Flags     int
 }
 
 func CheckFeed(f Feed, c *sql.DB) (bool, error) {
