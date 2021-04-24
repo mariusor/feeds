@@ -36,8 +36,16 @@ func PocketInit() (*ServicePocket, error) {
 	return &ServicePocket{ConsumerKey: PocketConsumerKey}, nil
 }
 
+func NewPocket(d DestinationService) PocketDestination {
+	p := PocketDestination{ }
+	if d != nil {
+		p.Target = d.(ServicePocket)
+	}
+	return p
+}
+
 type PocketDestination struct {
-	Service      ServicePocket      `json:"service"`
+	Target       ServicePocket      `json:"target"`
 	Step         int                `json:"-"`
 	RequestToken *auth.RequestToken `json:"-"`
 	AuthorizeURL string             `json:"-"`
@@ -49,8 +57,8 @@ func (p PocketDestination) Type() string {
 	return "pocket"
 }
 
-func (p PocketDestination) Target() TargetService {
-	return p.Service
+func (p PocketDestination) Service() DestinationService {
+	return p.Target
 }
 
 func DispatchToPocket(disp DispatchItem) (bool, error) {
@@ -72,7 +80,7 @@ func DispatchToPocket(disp DispatchItem) (bool, error) {
 	opt.Tags = Slug(disp.Item.Feed.Title)
 
 	log.Printf("Sending %s %s to %s %s", cont.Type, path.Base(cont.Path), target.Username, target.Type())
-	client := api.NewClient(target.Service.ConsumerKey, target.AccessToken)
+	client := api.NewClient(target.Target.ConsumerKey, target.AccessToken)
 	if err := client.Add(opt); err != nil {
 		return false, err
 	}

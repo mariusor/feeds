@@ -108,7 +108,7 @@ func createTables(c *sql.DB) error {
 		return err
 	}
 
-	targets := `create table targets (
+	dispatched := `create table dispatched (
 		id INTEGER PRIMARY KEY ASC,
 		destination_id int,
 		item_id int,
@@ -119,7 +119,7 @@ func createTables(c *sql.DB) error {
 		FOREIGN KEY(destination_id) REFERENCES destinations(id) ON DELETE CASCADE,
 		CONSTRAINT item_destination_uindex UNIQUE (item_id, destination_id)
 	);`
-	if _, err := c.Exec(targets); err != nil {
+	if _, err := c.Exec(dispatched); err != nil {
 		return err
 	}
 
@@ -129,7 +129,7 @@ func createTables(c *sql.DB) error {
 		destination_id int,
 		flags INT DEFAULT 0,
 		FOREIGN KEY(feed_id) REFERENCES feeds(id),
-		FOREIGN KEY(destination_id) REFERENCES destinations(id),
+		FOREIGN KEY(destination_id) REFERENCES destinations(id) ON DELETE CASCADE,
 		CONSTRAINT feed_destination_uindex UNIQUE (feed_id, destination_id)
 	);`
 	if _, err := c.Exec(subscriptions); err != nil {
@@ -142,7 +142,7 @@ func createTables(c *sql.DB) error {
 		return err
 	}
 
-	// table targets holds the details of the local application configuration for the service it represents
+	// table dispatched holds the details of the local application configuration for the Target it represents
 	*/
 
 	return nil
@@ -309,7 +309,7 @@ INNER JOIN feeds f ON i.feed_id = f.id
 INNER JOIN subscriptions s ON f.id = s.feed_id
 INNER JOIN destinations d ON d.id = s.destination_id
 INNER JOIN contents c ON c.item_id = i.id AND (%s)
-LEFT JOIN targets t ON t.item_id = i.id AND t.destination_id = d.id  
+LEFT JOIN dispatched t ON t.item_id = i.id AND t.destination_id = d.id  
 WHERE t.id IS NULL OR (t.id IS NOT NULL AND t.last_status = 0)
 GROUP BY i.id, d.type, d.id ORDER BY i.id;`, strings.Join(wheres, " OR "))
 
@@ -504,7 +504,7 @@ WHERE items.feed_id = ? ORDER BY items.feed_index ASC;`
 	return all, nil
 }
 
-type Services map[string]TargetDestination
+type Services map[string]DestinationTarget
 
 type User struct {
 	ID       int
@@ -557,7 +557,7 @@ WHERE type = ? AND json_extract(credentials, '$.username') = ?`
 	return nil, nil
 }
 
-func loadDestination(c *sql.DB, d TargetDestination) (*Destination, error) {
+func loadDestination(c *sql.DB, d DestinationTarget) (*Destination, error) {
 	switch dd := d.(type) {
 	case PocketDestination:
 		return loadPocketDestination(c, dd)
@@ -587,7 +587,7 @@ func updateDestination(c *sql.DB, d Destination) (*Destination, error) {
 	return &d, nil
 }
 
-func SaveDestination(c *sql.DB, d TargetDestination) (*Destination, error) {
+func SaveDestination(c *sql.DB, d DestinationTarget) (*Destination, error) {
 	creds, err := json.Marshal(d)
 	if err != nil {
 		return nil, fmt.Errorf("unable to marshal credentials: %w", err)
@@ -619,7 +619,7 @@ type Subscription struct {
 
 func SaveSubscriptions(c *sql.DB, d Destination, feeds ...Feed) error {
 	for _, f := range feeds {
-		ins := `INSERT INTO subscriptions (feed_id, destination_id) VALUES (?, ?)`
+		ins := `INSERT INTO subscriptions (feed_id, destination_id) VALUES (?, ?) ON CONFLICT DO NOTHING;`
 		if _, err := c.Exec(ins, f.ID, d.ID); err != nil {
 			return err
 		}
@@ -628,7 +628,7 @@ func SaveSubscriptions(c *sql.DB, d Destination, feeds ...Feed) error {
 }
 
 func insertTarget(c *sql.DB, t DispatchItem) error {
-	sql := `INSERT INTO targets (destination_id, item_id, flags, last_status, last_message) VALUES(?, ?, ?, ?, ?);`
+	sql := `INSERT INTO dispatched (destination_id, item_id, flags, last_status, last_message) VALUES(?, ?, ?, ?, ?);`
 	if _, err := c.Exec(sql, t.Destination.ID, t.Item.ID, t.Flags, t.LastStatus, t.LastMessage); err != nil {
 		return err
 	}
@@ -636,7 +636,7 @@ func insertTarget(c *sql.DB, t DispatchItem) error {
 }
 
 func updateTarget(c *sql.DB, t DispatchItem) error {
-	sql := `UPDATE targets SET last_status = ?, last_message = ?, flags = ? WHERE id = ?`
+	sql := `UPDATE dispatched SET last_status = ?, last_message = ?, flags = ? WHERE id = ?`
 	if _, err := c.Exec(sql, t.LastStatus, t.LastMessage, t.Flags, t.ID); err != nil {
 		return err
 	}
@@ -644,7 +644,7 @@ func updateTarget(c *sql.DB, t DispatchItem) error {
 }
 
 func loadTarget(c *sql.DB, t DispatchItem) (*DispatchItem, error) {
-	sql := `SELECT id, last_status, last_message, flags FROM targets WHERE destination_id = ? AND item_id = ?`
+	sql := `SELECT id, last_status, last_message, flags FROM dispatched WHERE destination_id = ? AND item_id = ?`
 	s, err := c.Query(sql, t.Destination.ID, t.Item.ID)
 	if err != nil {
 		return nil, err

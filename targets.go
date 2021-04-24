@@ -1,22 +1,22 @@
 package feeds
 
 type Target struct {
-	Service     TargetService
-	Destination TargetDestination
+	Service     DestinationService
+	Destination DestinationTarget
 }
 
-var ValidTargets = map[string]TargetService{
+var ValidTargets = map[string]DestinationService{
 	"myk": ServiceMyKindle{},
 	"pocket": ServicePocket{},
-	//"reMarkable": "Syncs to your reMarkable cloud account",
+	//"reMarkable": ServiceReMarkable{},
 }
 
-type TargetDestination interface {
+type DestinationTarget interface {
 	Type() string
-	Target() TargetService
+	Service() DestinationService
 }
 
-type TargetService interface {
+type DestinationService interface {
 	Label() string
 	Description() string
 	ValidContentTypes() []string
@@ -44,7 +44,7 @@ func (r ServiceReMarkable) Label() string {
 }
 
 func (r ServiceReMarkable) Description() string {
-	return "to be added"
+	return "Syncs to your reMarkable cloud account"
 }
 
 func (r ServiceReMarkable) ValidContentTypes() []string {

@@ -31,17 +31,25 @@ type SMTPCreds struct {
 	Password string `json:"password"`
 }
 
+func NewMyKindle(d DestinationService) MyKindleDestination {
+	k := MyKindleDestination{}
+	if d != nil {
+		k.Target = d.(ServiceMyKindle)
+	}
+	return k
+}
+
 type MyKindleDestination struct {
-	Service ServiceMyKindle `json:"service"`
-	To      string          `json:"to"`
+	Target ServiceMyKindle `json:"target"`
+	To     string          `json:"to"`
 }
 
 func (k MyKindleDestination) Type() string {
 	return "myk"
 }
 
-func (k MyKindleDestination) Target() TargetService {
-	return k.Service
+func (k MyKindleDestination) Service() DestinationService {
+	return k.Target
 }
 
 func DispatchToKindle(disp DispatchItem) (bool, error) {
@@ -60,7 +68,7 @@ func DispatchToKindle(disp DispatchItem) (bool, error) {
 	e := email.NewEmail()
 	log.Printf("Emailing %s to %s %s", cont.Path, target.To, target.Type())
 
-	settings := target.Service.SendCredentials
+	settings := target.Target.SendCredentials
 	e.From = settings.From
 	e.To = []string{target.To}
 	e.Bcc = []string{settings.From}

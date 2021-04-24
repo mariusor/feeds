@@ -169,8 +169,8 @@ func pocketTarget(dbPath, curPath string, ss sessions.Store, p feeds.ServicePock
 type target struct {
 	r           renderer
 	URL         string
-	Service     feeds.TargetService
-	Destination feeds.TargetDestination
+	Service     feeds.DestinationService
+	Destination feeds.DestinationTarget
 	Feeds       []feeds.Feed
 	dbPath      string
 }
@@ -195,16 +195,16 @@ func (t target) Handler(w http.ResponseWriter, r *http.Request) {
 	s := t.r.SessionInit(r)
 	var dest *feeds.Destination
 	if strings.ToLower(t.Service.Label()) == "pocket" {
-		pocket := getPocketSession(s)
+		service, _ := t.Service.(feeds.ServicePocket)
+		pocket := getPocketSession(s, service)
 		switch pocket.Step {
 		case PocketAuthDisabled:
 			errorTpl.Execute(w, fmt.Errorf("Pocket service it out of order"))
 			return
 		case PocketAuthNotStarted:
-			pocket.Service, _ = t.Service.(feeds.ServicePocket)
 			if pocket.RequestToken == nil {
 				var err error
-				requestToken, err := auth.ObtainRequestToken(pocket.Service.ConsumerKey, t.URL)
+				requestToken, err := auth.ObtainRequestToken(service.ConsumerKey, t.URL)
 				if err != nil {
 					errorTpl.Execute(w, fmt.Errorf("invalid Pocket authorization data"))
 					return
@@ -222,7 +222,7 @@ func (t target) Handler(w http.ResponseWriter, r *http.Request) {
 			}
 		case PocketAuthStepAuthLinkGenerated:
 			if pocket.AccessToken == "" && pocket.RequestToken != nil {
-				if authTok, err := auth.ObtainAccessToken(pocket.Service.ConsumerKey, pocket.RequestToken); err != nil {
+				if authTok, err := auth.ObtainAccessToken(service.ConsumerKey, pocket.RequestToken); err != nil {
 					if strings.Contains(err.Error(), "403") {
 						pocket.Step = PocketAuthNotStarted
 					}
@@ -248,8 +248,8 @@ func (t target) Handler(w http.ResponseWriter, r *http.Request) {
 		t.Destination = pocket
 	}
 	if strings.ToLower(t.Service.Label()) == "mykindle" {
-		kindle := getKindleSession(s)
-		kindle.Service, _ = t.Service.(feeds.ServiceMyKindle)
+		service, _ := t.Service.(feeds.ServiceMyKindle)
+		kindle := getKindleSession(s, service)
 		if r.Method == http.MethodPost {
 			kindle.To = r.FormValue("myk_account")
 			if dest, err = feeds.SaveDestination(c, kindle); err != nil {
@@ -311,8 +311,8 @@ type index struct {
 
 type feedListing struct {
 	Feeds []feeds.Feed
-	Destinations []feeds.TargetDestination
-	Targets map[string]feeds.TargetService
+	Destinations []feeds.DestinationTarget
+	Targets map[string]feeds.DestinationService
 }
 
 func (i index) Handler(w http.ResponseWriter, r *http.Request) {
@@ -323,16 +323,16 @@ func (i index) Handler(w http.ResponseWriter, r *http.Request) {
 
 	l := feedListing{
 		Feeds: i.Feeds,
-		Destinations: make([]feeds.TargetDestination, 0),
+		Destinations: make([]feeds.DestinationTarget, 0),
 		Targets: feeds.ValidTargets,
 	}
 	rr := R("index", i.s)
 	s := rr.SessionInit(r)
-	pocket := getPocketSession(s)
+	pocket := getPocketSession(s, nil)
 	if pocket.AccessToken != "" {
 		l.Destinations = append(l.Destinations, pocket)
 	}
-	kindle := getKindleSession(s)
+	kindle := getKindleSession(s, nil)
 	if kindle.To != "" {
 		l.Destinations = append(l.Destinations, kindle)
 	}
@@ -353,7 +353,7 @@ var tplFuncs = func(r *http.Request) template.FuncMap {
 	}
 }
 
-func serviceEnabled(dest []feeds.TargetDestination, typ string) bool {
+func serviceEnabled(dest []feeds.DestinationTarget, typ string) bool {
 	for _, d := range dest {
 		if d.Type() == typ {
 			return true
@@ -413,18 +413,18 @@ type article struct {
 
 type targets struct {
 	s sessions.Store
-	Targets map[string]feeds.TargetService
-	Destinations []feeds.TargetDestination
+	Targets map[string]feeds.DestinationService
+	Destinations []feeds.DestinationTarget
 }
 
 func (t targets) Handler(w http.ResponseWriter, r *http.Request) {
 	rr := R("register", t.s)
 	s := rr.SessionInit(r)
-	pocket := getPocketSession(s)
+	pocket := getPocketSession(s, nil)
 	if pocket.AccessToken != "" {
 		t.Destinations = append(t.Destinations, pocket)
 	}
-	kindle := getKindleSession(s)
+	kindle := getKindleSession(s, nil)
 	if kindle.To != "" {
 		t.Destinations = append(t.Destinations, kindle)
 	}
@@ -480,20 +480,20 @@ func initSession(ss sessions.Store, r *http.Request) *sessions.Session {
 	return s
 }
 
-func getPocketSession(s *sessions.Session) feeds.PocketDestination {
+func getPocketSession(s *sessions.Session, d feeds.DestinationService) feeds.PocketDestination {
 	if pocket, ok := s.Values["pocket"]; ok {
 		if p, ok := pocket.(feeds.PocketDestination); ok {
 			return p
 		}
 	}
-	return feeds.PocketDestination{}
+	return feeds.NewPocket(d)
 }
 
-func getKindleSession(s *sessions.Session) feeds.MyKindleDestination {
+func getKindleSession(s *sessions.Session, d feeds.DestinationService) feeds.MyKindleDestination {
 	if pocket, ok := s.Values["kindle"]; ok {
 		if p, ok := pocket.(feeds.MyKindleDestination); ok {
 			return p
 		}
 	}
-	return feeds.MyKindleDestination{}
+	return feeds.NewMyKindle(d)
 }
