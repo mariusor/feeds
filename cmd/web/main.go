@@ -251,7 +251,12 @@ func (t target) Handler(w http.ResponseWriter, r *http.Request) {
 		service, _ := t.Service.(feeds.ServiceMyKindle)
 		kindle := getKindleSession(s, service)
 		if r.Method == http.MethodPost {
-			kindle.To = r.FormValue("myk_account")
+			email := r.FormValue("myk_account")
+			if !strings.Contains(email, "@kindle.com") {
+				errorTpl.Execute(w, fmt.Errorf("please use a valid Kindle email address"))
+				return
+			}
+			kindle.To = email
 			if dest, err = feeds.SaveDestination(c, kindle); err != nil {
 				errorTpl.Execute(w, err)
 				return
