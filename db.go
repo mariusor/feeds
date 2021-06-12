@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/fs"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -224,7 +223,7 @@ func LoadItem(it *Item, c *sql.DB, basePath string) (bool, error) {
 func feedItemsAverageSize(path string) int {
 	var sum, cnt int64
 
-	filepath.Walk(path, func(path string, info fs.FileInfo, err error) error {
+	filepath.Walk(path, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return nil
 		}
