@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/fs"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -194,12 +195,18 @@ func LoadItem(it *Item, c *sql.DB, basePath string) (bool, error) {
 		}
 
 		// write received html to path
-		articlePath := path.Join(basePath, HtmlDir, strings.TrimSpace(it.Feed.Title), it.Path("html"))
-		if _, err := os.Stat(path.Dir(articlePath)); err != nil && os.IsNotExist(err) {
-			if err = os.MkdirAll(path.Dir(articlePath), 0755); err != nil {
+		feedPath := path.Join(basePath, HtmlDir, strings.TrimSpace(it.Feed.Title))
+		articlePath := path.Join(feedPath, it.Path("html"))
+		if _, err := os.Stat(feedPath); err != nil && os.IsNotExist(err) {
+			if err = os.MkdirAll(feedPath, 0755); err != nil {
 				return false, err
 			}
 		}
+
+		if avgSize := feedItemsAverageSize(feedPath); avgSize > 0 && len(data) < avgSize/7 {
+			return false, errors.New("file size is smaller than 14% of average of existing ones")
+		}
+
 		if err = ioutil.WriteFile(articlePath, data, 0644); err != nil {
 			return false, err
 		}
@@ -212,6 +219,23 @@ func LoadItem(it *Item, c *sql.DB, basePath string) (bool, error) {
 		return false, err
 	}
 	return true, nil
+}
+
+func feedItemsAverageSize(path string) int {
+	var sum, cnt int64
+
+	filepath.Walk(path, func(path string, info fs.FileInfo, err error) error {
+		if err != nil {
+			return nil
+		}
+		sum += info.Size()
+		cnt++
+		return nil
+	})
+	if sum == 0 || cnt == 0 {
+		return -1
+	}
+	return int(sum/cnt)
 }
 
 func GetFeeds(c *sql.DB) ([]Feed, error) {
