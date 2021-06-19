@@ -5,7 +5,6 @@ import (
 	"encoding/gob"
 	"flag"
 	"fmt"
-	"github.com/motemen/go-pocket/auth"
 	"html/template"
 	"io"
 	"log"
@@ -17,6 +16,7 @@ import (
 
 	"github.com/dghubble/sessions"
 	"github.com/mariusor/feeds"
+	"github.com/motemen/go-pocket/auth"
 )
 
 var errorTpl = template.Must(template.New("error.html").ParseFiles("web/templates/error.html"))
