@@ -2,9 +2,13 @@ package feeds
 
 import (
 	"database/sql"
+	"io/ioutil"
 	"log"
+	"mime"
+	"net/http"
 	"net/url"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/SlyMarbo/rss"
@@ -20,9 +24,49 @@ type Feed struct {
 	Updated   time.Time
 	Flags     int
 }
+const (
+	TypeRSS = "rss"
+	TypeHTML = "html"
+)
+func sourceType (contentType string, body []byte) string {
+	var typ string
+	if len(contentType) > 0 {
+		mimeType, _, _ := mime.ParseMediaType(contentType)
+		parts := strings.Split(mimeType, "/")
+		if len(parts) > 1 {
+			typ = parts[1]
+		}
+	}
+	if typ != "" {
+		typ = http.DetectContentType(body)
+	}
+	if typ == "html" {
+		return TypeHTML
+	}
+	return TypeRSS
+}
 
 func CheckFeed(f Feed, c *sql.DB) (bool, error) {
-	doc, err := rss.Fetch(f.URL.String())
+	client := http.DefaultClient
+	resp, err := client.Get(f.URL.String())
+
+	if err != nil {
+		return false, err
+	}
+	defer resp.Body.Close()
+
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return false, err
+	}
+	if sourceType(resp.Header.Get("Content-Type"), body) == TypeHTML {
+		// The source needs processing from HTML to RSS
+		// We need to use something like
+		// body = ToRSS(body)
+	}
+
+	doc, err := rss.Parse(body)
 	if err != nil {
 		return false, err
 	}
