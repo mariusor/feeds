@@ -3,12 +3,12 @@ package main
 import (
 	"context"
 	"flag"
-	"golang.org/x/sync/errgroup"
 	"log"
 	"path"
 	"time"
 
 	"github.com/mariusor/feeds"
+	"golang.org/x/sync/errgroup"
 )
 
 const (
