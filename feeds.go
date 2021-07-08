@@ -60,10 +60,12 @@ func CheckFeed(f Feed, c *sql.DB) (bool, error) {
 	if err != nil {
 		return false, err
 	}
+
 	if sourceType(resp.Header.Get("Content-Type"), body) == TypeHTML {
 		// The source needs processing from HTML to RSS
-		// We need to use something like
-		// body = ToRSS(body)
+		if body, err = ToFeed(c, f.URL, body); err != nil {
+			return false, err
+		}
 	}
 
 	doc, err := rss.Parse(body)
