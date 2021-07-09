@@ -37,6 +37,16 @@ func (rr renderer) SessionInit(r *http.Request) *sessions.Session {
 	return initSession(rr.s, r)
 }
 
+func (rr renderer) Redirect(w http.ResponseWriter, r *http.Request, s *sessions.Session, url string) {
+	if s != nil {
+		if err := s.Save(w); err != nil {
+			errorTpl.Execute(w, fmt.Errorf("unable to save session: %w", err))
+			return
+		}
+	}
+	http.Redirect(w, r, url, http.StatusPermanentRedirect)
+}
+
 func (rr renderer) Write(w http.ResponseWriter, r *http.Request, s *sessions.Session, t interface{}) {
 	path := path.Join("web/templates/", rr.name)
 	paths := []string{
@@ -82,7 +92,7 @@ var validFileTypes = [...]string {
 	"epub",
 }
 
-func genRoutes(dbDsn string, ss *sessions.CookieStore) *http.ServeMux {
+func genRoutes(dbDsn string, ss sessions.Store) *http.ServeMux {
 	r := http.NewServeMux()
 
 	c, err := feeds.DB(dbDsn)
@@ -95,10 +105,8 @@ func genRoutes(dbDsn string, ss *sessions.CookieStore) *http.ServeMux {
 		log.Printf("unable to load feeds: %s", err)
 	}
 
-	feedsListing := index{
-		Feeds: allFeeds,
-		s: ss,
-	}
+	feedsListing := index{Feeds: allFeeds, s: ss}
+
 	r.HandleFunc("/", feedsListing.Handler)
 	r.HandleFunc("/add", AddHandler)
 	for _, f := range allFeeds {
