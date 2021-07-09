@@ -42,6 +42,7 @@ func (rr renderer) Write(w http.ResponseWriter, r *http.Request, s *sessions.Ses
 	paths := []string{
 		path,
 		"web/templates/partials/services.html",
+		"web/templates/partials/new-feed.html",
 	}
 	tpl, err := template.New(rr.name).Funcs(tplFuncs(r)).ParseFiles(paths...)
 	if err != nil {
@@ -99,6 +100,7 @@ func genRoutes(dbDsn string, ss *sessions.CookieStore) *http.ServeMux {
 		s: ss,
 	}
 	r.HandleFunc("/", feedsListing.Handler)
+	r.HandleFunc("/add", AddHandler)
 	for _, f := range allFeeds {
 		items, err := feeds.GetItemsByFeedAndType(c, f, "html")
 		if err != nil {
@@ -502,3 +504,27 @@ func getKindleSession(s *sessions.Session, d feeds.DestinationService) feeds.MyK
 	}
 	return feeds.NewMyKindle(d)
 }
+
+type AddStatus struct {
+	Status string
+	URL string
+}
+
+func AddHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Redirect(w, r, "/", http.StatusPermanentRedirect)
+		return
+	}
+	url := r.FormValue("add-url")
+	var a = AddStatus{
+		Status: "OK",
+		URL: url,
+	}
+	t, err := tpl("add.html", r)
+	if err != nil {
+		errorTpl.Execute(w, err)
+		return
+	}
+	t.Execute(w, a)
+}
+
