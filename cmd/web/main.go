@@ -519,14 +519,14 @@ type AddStatus struct {
 }
 
 func AddHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Redirect(w, r, "/", http.StatusPermanentRedirect)
+	feedUrl := r.FormValue("feed-url")
+	if len(feedUrl) == 0 {
+		errorTpl.Execute(w, fmt.Errorf("empty URL"))
 		return
 	}
-	url := r.FormValue("add-url")
 	var a = AddStatus{
 		Status: "OK",
-		URL: url,
+		URL: feedUrl,
 	}
 	t, err := tpl("add.html", r)
 	if err != nil {
@@ -535,4 +535,3 @@ func AddHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	t.Execute(w, a)
 }
-

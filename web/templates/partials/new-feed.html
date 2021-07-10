@@ -1,8 +1,9 @@
+<p>
+    Add a new feed to be tracked.<br/>
+    You can add RSS and Atom feeds, and also for some particular cases you can add HTML listings of links to articles. <br/>
+    As an example you can add a link to a <a href="https://write.as/blog">write.as</a> profile.
+</p>
 <form method="post" action="/add">
-    <fieldset>
-        <legend>Add a new feed:</legend>
-        <section>We support RSS and Atom feeds.</section>
-        <label for="url">URL:</label> <input type="url" id="url" name="add-url" />
-        <button type="submit">Add</button>
-    </fieldset>
+    <label>URL: <input type="url" name="feed-url" placeholder="https://example.com/.rss" /></label>
+    <button type="submit">Add new feed</button>
 </form>
