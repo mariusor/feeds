@@ -24,3 +24,5 @@ require (
 	modernc.org/memory v1.0.5 // indirect
 	modernc.org/sqlite v1.11.2
 )
+
+replace git.sr.ht/~ghost08/ratt => git.sr.ht/~mariusor/ratt v0.0.0-20210710101108-117ea046a8f2
