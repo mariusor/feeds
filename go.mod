@@ -3,7 +3,7 @@ module github.com/mariusor/feeds
 go 1.13
 
 require (
-	git.sr.ht/~ghost08/ratt v0.0.0-20210708051012-0c70b582c081
+	git.sr.ht/~ghost08/ratt v0.0.0-20210710134820-17a5f146a85c
 	github.com/766b/mobi v0.0.0-20200528201125-c87aa9e3c890
 	github.com/PuerkitoBio/goquery v1.7.0
 	github.com/SlyMarbo/rss v1.0.1
@@ -24,5 +24,3 @@ require (
 	modernc.org/memory v1.0.5 // indirect
 	modernc.org/sqlite v1.11.2
 )
-
-replace git.sr.ht/~ghost08/ratt => git.sr.ht/~mariusor/ratt v0.0.0-20210710101108-117ea046a8f2
