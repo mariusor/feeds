@@ -15,7 +15,7 @@ func ToMobi(content []byte, title string, author string, outPath string) error {
 	}
 
 	m.Title(title)
-	m.Compression(mobi.CompressionPalmDoc)
+	m.Compression(mobi.CompressionHuffCdic)
 	m.NewExthRecord(mobi.EXTH_DOCTYPE, "PBOK")
 	if author != "" {
 		m.NewExthRecord(mobi.EXTH_AUTHOR, author)
