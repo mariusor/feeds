@@ -140,13 +140,13 @@ func createTables(c *sql.DB) error {
 		return err
 	}
 	/*
-	// We disable these tables for now
-	insertUsers := `INSERT INTO users (id) VALUES(?);`
-	if _, err := c.Exec(insertUsers, 1); err != nil {
-		return err
-	}
+		// We disable these tables for now
+		insertUsers := `INSERT INTO users (id) VALUES(?);`
+		if _, err := c.Exec(insertUsers, 1); err != nil {
+			return err
+		}
 
-	// table dispatched holds the details of the local application configuration for the Target it represents
+		// table dispatched holds the details of the local application configuration for the Target it represents
 	*/
 
 	return nil
@@ -234,7 +234,7 @@ func feedItemsAverageSize(path string) int {
 	if sum == 0 || cnt == 0 {
 		return -1
 	}
-	return int(sum/cnt)
+	return int(sum / cnt)
 }
 
 func GetFeeds(c *sql.DB) ([]Feed, error) {
@@ -259,7 +259,7 @@ func GetFeeds(c *sql.DB) ([]Feed, error) {
 			Title:     title,
 			Author:    auth,
 			Frequency: time.Duration(freq.Int32) * time.Second,
-			Flags: flags,
+			Flags:     flags,
 		}
 		if updated.Valid {
 			f.Updated, _ = time.Parse(time.RFC3339Nano, updated.String)
@@ -334,7 +334,7 @@ func GetNonDispatchedItemContentsForDestination(c *sql.DB) ([]DispatchItem, erro
 	for typ, t := range ValidTargets {
 		wheres = append(wheres, fmt.Sprintf("d.type = '%s' AND c.type IN ('%s')", typ, strings.Join(t.ValidContentTypes(), "', '")))
 	}
-	sel := fmt.Sprintf(`SELECT t.id, c.id, i.id, f.title, i.title, i.author, i.url, c.path, c.type, d.id, d.type, d.credentials FROM items i
+	sel := fmt.Sprintf(`SELECT t.id, c.id, i.id, f.title, i.title, i.author, i.url, c.path, c.type, d.id, d.type, d.credentials, d.flags FROM items i
 INNER JOIN feeds f ON i.feed_id = f.id
 INNER JOIN subscriptions s ON f.id = s.feed_id
 INNER JOIN destinations d ON d.id = s.destination_id
@@ -358,8 +358,11 @@ GROUP BY i.id, d.type, d.id ORDER BY i.id;`, strings.Join(wheres, " OR "), subsc
 			contID                    int
 			targetID                  sql.NullInt32
 		)
-		err := s.Scan(&targetID, &contID, &it.ID, &it.Feed.Title, &it.Title, &it.Author, &itURL, &contPath, &contType, &dest.ID, &dest.Type, &dest.Credentials)
+		err := s.Scan(&targetID, &contID, &it.ID, &it.Feed.Title, &it.Title, &it.Author, &itURL, &contPath, &contType, &dest.ID, &dest.Type, &dest.Credentials, &dest.Flags)
 		if err != nil {
+			continue
+		}
+		if dest.Flags&FlagsDisabled == FlagsDisabled {
 			continue
 		}
 		it.URL, _ = url.Parse(itURL)
@@ -668,7 +671,7 @@ func SaveSubscriptions(c *sql.DB, d Destination, feeds ...Feed) error {
 }
 
 func insertTarget(c *sql.DB, t DispatchItem) error {
-	sql := `INSERT INTO dispatched (destination_id, item_id, flags, last_try, last_status, last_message) VALUES(?, ?, ?, ?, ?);`
+	sql := `INSERT INTO dispatched (destination_id, item_id, flags, last_try, last_status, last_message) VALUES(?, ?, ?, ?, ?, ?);`
 	if _, err := c.Exec(sql, t.Destination.ID, t.Item.ID, t.Flags, time.Now().UTC().Format(time.RFC3339), t.LastStatus, t.LastMessage); err != nil {
 		return err
 	}
