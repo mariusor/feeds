@@ -24,11 +24,13 @@ type Feed struct {
 	Updated   time.Time
 	Flags     int
 }
+
 const (
-	TypeRSS = "rss"
+	TypeRSS  = "rss"
 	TypeHTML = "html"
 )
-func sourceType (contentType string, body []byte) string {
+
+func sourceType(contentType string, body []byte) string {
 	var typ string
 	if len(contentType) > 0 {
 		mimeType, _, _ := mime.ParseMediaType(contentType)
@@ -55,7 +57,6 @@ func CheckFeed(f Feed, c *sql.DB) (bool, error) {
 	}
 	defer resp.Body.Close()
 
-
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return false, err
@@ -76,7 +77,7 @@ func CheckFeed(f Feed, c *sql.DB) (bool, error) {
 	count := 0
 	lastLoaded := time.Now().UTC()
 
-	itemSel := "SELECT id FROM items WHERE url = ?"
+	itemSel := "SELECT id, published_date FROM items WHERE url = ?"
 	s, err := c.Prepare(itemSel)
 	if err != nil {
 		return false, err
@@ -85,9 +86,10 @@ func CheckFeed(f Feed, c *sql.DB) (bool, error) {
 	all := make([]Item, 0)
 	for _, item := range doc.Items {
 		it := Item{}
-		err = s.QueryRow(item.Link).Scan(&it.ID)
-		if err == nil && it.ID > 0 {
-			log.Printf("Skipping[%d] %s\n", it.ID, item.Link)
+		if err = s.QueryRow(item.Link).Scan(&it.ID, &it.Published); err != nil {
+			log.Printf("Error: %s", err)
+		}
+		if item.Date.Sub(it.Published) <= 0 {
 			continue
 		}
 		it.Feed.ID = f.ID
@@ -107,15 +109,22 @@ func CheckFeed(f Feed, c *sql.DB) (bool, error) {
 INSERT INTO items (url, feed_id, guid, title, published_date, last_loaded, author, feed_index)
 VALUES (?, ?, ?, ?, ?, ?, (select author from feeds where id = ? LIMIT 1), ifnull((select feed_index from items where feed_id = ? order by feed_index desc limit 1),0)+1);
 `
-	s, err = c.Prepare(itemIns)
+	itemUpd := ` UPDATE items SET url = ?, guid = ?, title = ?, published_date = ?, last_loaded = ? WHERE id = ?;`
+	i, err := c.Prepare(itemIns)
 	if err != nil {
 		return false, err
 	}
+	u, err := c.Prepare(itemUpd)
 	for _, it := range all {
-		_, err := s.Exec(it.URL.String(), it.Feed.ID, it.GUID, it.Title, it.Published.UTC().Format(time.RFC3339), lastLoaded.Format(time.RFC3339), it.Feed.ID, it.Feed.ID)
+		if it.ID > 0 {
+			_, err = u.Exec(it.URL.String(), it.GUID, it.Title, it.Published.UTC().Format(time.RFC3339), lastLoaded.Format(time.RFC3339), it.ID)
+			log.Printf("Updated: %s", it.URL)
+		} else {
+			_, err = i.Exec(it.URL.String(), it.Feed.ID, it.GUID, it.Title, it.Published.UTC().Format(time.RFC3339), lastLoaded.Format(time.RFC3339), it.Feed.ID, it.Feed.ID)
+			log.Printf("Added: %s", it.URL)
+		}
 		if err != nil {
-			log.Printf("Error: %s", err)
-			continue
+			log.Printf("Error for %s: %s", it.URL.String(), err)
 		}
 	}
 
@@ -126,11 +135,10 @@ VALUES (?, ?, ?, ?, ?, ?, (select author from feeds where id = ? LIMIT 1), ifnul
 	}
 
 	updateFeed := "UPDATE feeds SET title = ?, last_loaded = ? WHERE id = ?"
-	params := []interface{} {doc.Title, lastLoaded.Format(time.RFC3339), f.ID}
+	params := []interface{}{doc.Title, lastLoaded.Format(time.RFC3339), f.ID}
 	if _, err = c.Exec(updateFeed, params...); err != nil {
 		return false, err
 	}
-
 
 	return true, nil
 }
