@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"database/sql"
 	"encoding/gob"
 	"flag"
 	"fmt"
@@ -9,6 +10,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"path"
 	"strings"
@@ -23,13 +25,13 @@ var errorTpl = template.Must(template.New("error.html").ParseFiles("web/template
 
 type renderer struct {
 	name string
-	s   sessions.Store
+	s    sessions.Store
 }
 
 func R(name string, s sessions.Store) renderer {
 	return renderer{
 		name: fmt.Sprintf("%s.html", name),
-		s: s,
+		s:    s,
 	}
 }
 
@@ -86,21 +88,16 @@ var notFoundHandler = func(e error) func(w http.ResponseWriter, r *http.Request)
 	}
 }
 
-var validFileTypes = [...]string {
+var validFileTypes = [...]string{
 	"html",
 	"mobi",
 	"epub",
 }
 
-func genRoutes(dbDsn string, ss sessions.Store) *http.ServeMux {
+func genRoutes(db *sql.DB, ss sessions.Store) *http.ServeMux {
 	r := http.NewServeMux()
 
-	c, err := feeds.DB(dbDsn)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer c.Close()
-	allFeeds, err := feeds.GetFeeds(c)
+	allFeeds, err := feeds.GetFeeds(db)
 	if err != nil {
 		log.Printf("unable to load feeds: %s", err)
 	}
@@ -108,9 +105,9 @@ func genRoutes(dbDsn string, ss sessions.Store) *http.ServeMux {
 	feedsListing := index{Feeds: allFeeds, s: ss}
 
 	r.HandleFunc("/", feedsListing.Handler)
-	r.HandleFunc("/add", AddHandler)
+	r.HandleFunc("/add", AddHandler(db))
 	for _, f := range allFeeds {
-		items, err := feeds.GetItemsByFeedAndType(c, f, "html")
+		items, err := feeds.GetItemsByFeedAndType(db, f, "html")
 		if err != nil {
 			panic(err)
 		}
@@ -136,14 +133,14 @@ func genRoutes(dbDsn string, ss sessions.Store) *http.ServeMux {
 		service := feeds.Slug(typ)
 		switch service {
 		case "myk":
-			r.HandleFunc(path.Join("/register", service), myKindleTarget(dbDsn, ss, feedsListing.Feeds).Handler)
+			r.HandleFunc(path.Join("/register", service), myKindleTarget(db, ss, feedsListing.Feeds).Handler)
 		case "pocket":
 			var handlerFn http.HandlerFunc
 			curPath := path.Join("/register", service)
 			if p, err := feeds.PocketInit(); err != nil {
 				handlerFn = notFoundHandler(fmt.Errorf("Pocket is not available: %w", err))
 			} else {
-				handlerFn = pocketTarget(dbDsn, curPath, ss, *p, feedsListing.Feeds).Handler
+				handlerFn = pocketTarget(db, curPath, ss, *p, feedsListing.Feeds).Handler
 			}
 			r.HandleFunc(curPath, handlerFn)
 		}
@@ -152,26 +149,26 @@ func genRoutes(dbDsn string, ss sessions.Store) *http.ServeMux {
 	return r
 }
 
-func myKindleTarget(dbPath string, ss sessions.Store, f []feeds.Feed) target {
+func myKindleTarget(c *sql.DB, ss sessions.Store, f []feeds.Feed) target {
 	return target{
-		dbPath: dbPath,
-		r:      R("myk", ss),
+		r:     R("myk", ss),
 		Feeds: f,
 		Service: feeds.ServiceMyKindle{
 			SendCredentials: feeds.DefaultMyKindleSender,
 		},
+		db: c,
 	}
 }
 
-func pocketTarget(dbPath, curPath string, ss sessions.Store, p feeds.ServicePocket, f []feeds.Feed) target {
+func pocketTarget(c *sql.DB, curPath string, ss sessions.Store, p feeds.ServicePocket, f []feeds.Feed) target {
 	if p.AppName == "" {
 		p.AppName = "FeedSync"
 	}
 	return target{
 		URL:     fmt.Sprintf("http://localhost:3000%s", curPath),
 		r:       R("pocket", ss),
-		Feeds: f,
-		dbPath:  dbPath,
+		Feeds:   f,
+		db:      c,
 		Service: p,
 	}
 }
@@ -182,7 +179,7 @@ type target struct {
 	Service     feeds.DestinationService
 	Destination feeds.DestinationTarget
 	Feeds       []feeds.Feed
-	dbPath      string
+	db          *sql.DB
 }
 
 const (
@@ -190,18 +187,11 @@ const (
 	PocketAuthStepAuthLinkGenerated
 	PocketAuthStepAuthorized
 
-	PocketAuthDisabled           = -1
-	PocketAuthNotStarted         = 0
+	PocketAuthDisabled   = -1
+	PocketAuthNotStarted = 0
 )
 
 func (t target) Handler(w http.ResponseWriter, r *http.Request) {
-	c, err := feeds.DB(t.dbPath)
-	if err != nil {
-		errorTpl.Execute(w, fmt.Errorf("invalid Pocket authorization data"))
-		return
-	}
-	defer c.Close()
-
 	s := t.r.SessionInit(r)
 	var dest *feeds.Destination
 	if strings.ToLower(t.Service.Label()) == "pocket" {
@@ -244,7 +234,7 @@ func (t target) Handler(w http.ResponseWriter, r *http.Request) {
 					pocket.Username = authTok.Username
 					pocket.AccessToken = authTok.AccessToken
 					pocket.Step = PocketAuthStepAuthorized
-					if dest, err = feeds.SaveDestination(c, pocket); err != nil {
+					if dest, err = feeds.SaveDestination(t.db, pocket); err != nil {
 						errorTpl.Execute(w, err)
 						return
 					}
@@ -257,6 +247,7 @@ func (t target) Handler(w http.ResponseWriter, r *http.Request) {
 		s.Values["pocket"] = pocket
 		t.Destination = pocket
 	}
+	var err error
 	if strings.ToLower(t.Service.Label()) == "mykindle" {
 		service, _ := t.Service.(feeds.ServiceMyKindle)
 		kindle := getKindleSession(s, service)
@@ -267,7 +258,7 @@ func (t target) Handler(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			kindle.To = email
-			if dest, err = feeds.SaveDestination(c, kindle); err != nil {
+			if dest, err = feeds.SaveDestination(t.db, kindle); err != nil {
 				errorTpl.Execute(w, err)
 				return
 			}
@@ -276,7 +267,7 @@ func (t target) Handler(w http.ResponseWriter, r *http.Request) {
 		t.Destination = kindle
 	}
 	if dest != nil {
-		if err = feeds.SaveSubscriptions(c, *dest, t.Feeds...); err != nil {
+		if err = feeds.SaveSubscriptions(t.db, *dest, t.Feeds...); err != nil {
 			errorTpl.Execute(w, err)
 		}
 	}
@@ -293,13 +284,19 @@ func main() {
 		os.Mkdir(basePath, 0755)
 	}
 
+	c, err := feeds.DB(basePath)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer c.Close()
+
 	keys := [][]byte{
 		{0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8, 0x9, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16},
 		{0x2, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8, 0x9, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x11},
 	}
 	ss := sessions.NewCookieStore(keys...)
 	ss.Config.Domain = "localhost"
-	r := genRoutes(basePath, ss)
+	r := genRoutes(c, ss)
 
 	ticker := time.NewTicker(30 * time.Second)
 	quit := make(chan struct{})
@@ -307,7 +304,7 @@ func main() {
 		for {
 			select {
 			case <-ticker.C:
-				r = genRoutes(basePath, s)
+				r = genRoutes(c, s)
 			case <-quit:
 				ticker.Stop()
 				return
@@ -320,14 +317,14 @@ func main() {
 }
 
 type index struct {
-	s sessions.Store
+	s     sessions.Store
 	Feeds []feeds.Feed
 }
 
 type feedListing struct {
-	Feeds []feeds.Feed
+	Feeds        []feeds.Feed
 	Destinations []feeds.DestinationTarget
-	Targets map[string]feeds.DestinationService
+	Targets      map[string]feeds.DestinationService
 }
 
 func (i index) Handler(w http.ResponseWriter, r *http.Request) {
@@ -337,9 +334,9 @@ func (i index) Handler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	l := feedListing{
-		Feeds: i.Feeds,
+		Feeds:        i.Feeds,
 		Destinations: make([]feeds.DestinationTarget, 0),
-		Targets: feeds.ValidTargets,
+		Targets:      feeds.ValidTargets,
 	}
 	rr := R("index", i.s)
 	s := rr.SessionInit(r)
@@ -360,10 +357,10 @@ var tplFuncs = func(r *http.Request) template.FuncMap {
 		"sluggify": func(s string) template.HTMLAttr {
 			return template.HTMLAttr(feeds.Slug(s))
 		},
-		"request": func() http.Request { return *r },
-		"hasHtml": has("html"),
-		"hasMobi": has("mobi"),
-		"hasEPub": has("epub"),
+		"request":        func() http.Request { return *r },
+		"hasHtml":        has("html"),
+		"hasMobi":        has("mobi"),
+		"hasEPub":        has("epub"),
 		"ServiceEnabled": serviceEnabled,
 	}
 }
@@ -427,8 +424,8 @@ type article struct {
 }
 
 type targets struct {
-	s sessions.Store
-	Targets map[string]feeds.DestinationService
+	s            sessions.Store
+	Targets      map[string]feeds.DestinationService
 	Destinations []feeds.DestinationTarget
 }
 
@@ -484,6 +481,7 @@ func fmtDuration(d time.Duration) template.HTML {
 }
 
 var sessionName = "_s"
+
 func initSession(ss sessions.Store, r *http.Request) *sessions.Session {
 	gob.Register(feeds.PocketDestination{})
 	gob.Register(feeds.MyKindleDestination{})
@@ -515,10 +513,9 @@ func getKindleSession(s *sessions.Session, d feeds.DestinationService) feeds.MyK
 
 type AddStatus struct {
 	Status string
-	URL string
+	URL    string
 }
 
-func AddHandler(w http.ResponseWriter, r *http.Request) {
 	feedUrl := r.FormValue("feed-url")
 	if len(feedUrl) == 0 {
 		errorTpl.Execute(w, fmt.Errorf("empty URL"))
@@ -532,6 +529,9 @@ func AddHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		errorTpl.Execute(w, err)
 		return
+func AddHandler(db *sql.DB) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		t.Execute(w, a)
 	}
 	t.Execute(w, a)
 }
