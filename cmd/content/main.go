@@ -71,11 +71,12 @@ func main() {
 				m.Lock()
 				status, err := feeds.LoadItem(&it, c, basePath)
 				if err != nil {
-					log.Printf("Error: %s", err.Error())
+					log.Printf("Error[%5d] %s %s", it.FeedIndex, it.URL.String(), err.Error())
 					failures[it.Feed.ID]++
 				}
 				log.Printf("Loaded[%5d] %s [%t]", it.FeedIndex, it.URL.String(), status)
-				return err
+
+				return nil
 			})
 		}
 		if err := g.Wait(); err != nil {
