@@ -242,6 +242,21 @@ func feedItemsAverageSize(path string) int {
 	return int(sum / cnt)
 }
 
+func SaveFeeds(c *sql.DB, feeds ...Feed) error {
+	ins := `INSERT INTO feeds (title, frequency, author, url, flags) VALUES(?, ?, ?, ?, ?) ON CONFLICT(url) DO NOTHING;`
+	s, err := c.Prepare(ins)
+	if err != nil {
+		return err
+	}
+	defer s.Close()
+	for _, f := range feeds {
+		if _, err := s.Exec(f.Title, f.Frequency.Seconds(), f.Author, f.URL.String(), f.Flags); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func GetFeeds(c *sql.DB) ([]Feed, error) {
 	sel := `SELECT id, title, author, frequency, last_loaded, url, flags FROM feeds where flags != ?`
 	s, err := c.Query(sel, FlagsDisabled)

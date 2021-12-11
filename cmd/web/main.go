@@ -516,22 +516,52 @@ type AddStatus struct {
 	URL    string
 }
 
-	feedUrl := r.FormValue("feed-url")
-	if len(feedUrl) == 0 {
-		errorTpl.Execute(w, fmt.Errorf("empty URL"))
-		return
-	}
-	var a = AddStatus{
-		Status: "OK",
-		URL: feedUrl,
-	}
-	t, err := tpl("add.html", r)
-	if err != nil {
-		errorTpl.Execute(w, err)
-		return
 func AddHandler(db *sql.DB) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
+		feedUrl := r.FormValue("feed-url")
+		if len(feedUrl) == 0 {
+			errorTpl.Execute(w, fmt.Errorf("empty URL"))
+			return
+		}
+		if r.Method == http.MethodPost {
+			u, err := url.ParseRequestURI(feedUrl)
+			if err != nil {
+				errorTpl.Execute(w, fmt.Errorf("invalid URL %w", err))
+				return
+			}
+			doc, err := feeds.GetFeedInfo(*u)
+			if err != nil {
+				errorTpl.Execute(w, fmt.Errorf("invalid RSS %w", err))
+				return
+			}
+			feed := feeds.Feed{
+				URL:       u,
+				Title:     doc.Title,
+				Author:    "Unknown",
+				Frequency: time.Hour * 24 * 2,
+			}
+
+			if err := feeds.SaveFeeds(db, feed); err != nil {
+				errorTpl.Execute(w, fmt.Errorf("invalid URL %w", err))
+				return
+			}
+			redirect := *r.URL
+			if !redirect.Query().Has("feed-url") {
+				q := redirect.Query()
+				q.Add("feed-url", feedUrl)
+				redirect.RawQuery = q.Encode()
+			}
+			http.Redirect(w, r, redirect.String(), http.StatusSeeOther)
+		}
+		var a = AddStatus{
+			Status: "OK",
+			URL:    feedUrl,
+		}
+		t, err := tpl("add.html", r)
+		if err != nil {
+			errorTpl.Execute(w, err)
+			return
+		}
 		t.Execute(w, a)
 	}
-	t.Execute(w, a)
 }

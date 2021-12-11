@@ -48,6 +48,23 @@ func sourceType(contentType string, body []byte) string {
 	return TypeRSS
 }
 
+func GetFeedInfo(u url.URL) (*rss.Feed, error) {
+	client := http.DefaultClient
+	resp, err := client.Get(u.String())
+
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	return rss.Parse(body)
+}
+
 func CheckFeed(f Feed, c *sql.DB) (bool, error) {
 	client := http.DefaultClient
 	resp, err := client.Get(f.URL.String())
