@@ -10,6 +10,7 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/mariusor/feeds"
 	"golang.org/x/sync/errgroup"
@@ -17,7 +18,7 @@ import (
 
 const chunkSize = 20
 
-var validEbookTypes = [...]string {
+var validEbookTypes = [...]string{
 	"html",
 	"epub",
 	"mobi",
@@ -82,7 +83,7 @@ func generateEbook(typ, basePath string, item *feeds.Item, overwrite bool) error
 	}
 	var (
 		ebookFn func(content []byte, title string, author string, outPath string) error
-		contFn func() ([]byte, error)
+		contFn  func() ([]byte, error)
 		err     error
 	)
 	needsHtmlFn := func(typ string) func() ([]byte, error) {
@@ -160,7 +161,7 @@ func generateEbook(typ, basePath string, item *feeds.Item, overwrite bool) error
 func main() {
 	var (
 		basePath string
-		verbose bool
+		verbose  bool
 	)
 	flag.StringVar(&basePath, "path", "/tmp", "Base path")
 	flag.BoolVar(&verbose, "verbose", false, "Output debugging messages")
@@ -195,11 +196,15 @@ func main() {
 	}
 	defer s.Close()
 
+	m := sync.Mutex{}
 	g, _ := errgroup.WithContext(context.Background())
 	for i := 0; i < len(all); i += chunkSize {
 		for j := i; j < i+chunkSize && j < len(all); j++ {
-			item  := &all[j]
+			item := &all[j]
 			g.Go(func() error {
+				defer m.Unlock()
+
+				m.Lock()
 				err := generateContent(item, basePath, true)
 				for typ, cont := range item.Content {
 					if typ == "raw" {
