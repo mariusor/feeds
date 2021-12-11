@@ -159,14 +159,14 @@ func sanitizeFileName(name string) string {
 
 func LoadItem(it *Item, c *sql.DB, basePath string) (bool, error) {
 	contentIns := `INSERT INTO contents (item_id, path, type) VALUES(?, ?, ?);`
-	s1, err := c.Prepare(contentIns)
+	ins, err := c.Prepare(contentIns)
 	if err != nil {
 		return false, err
 	}
-	defer s1.Close()
+	defer ins.Close()
 
-	itemUpd := `UPDATE items SET last_loaded = ?, last_status = ? WHERE id = ?`
-	s2, err := c.Prepare(itemUpd)
+	itemUpd := `UPDATE items SET title = ?, last_loaded = ?, last_status = ? WHERE id = ?`
+	upd, err := c.Prepare(itemUpd)
 	if err != nil {
 		return false, err
 	}
@@ -214,12 +214,17 @@ func LoadItem(it *Item, c *sql.DB, basePath string) (bool, error) {
 		if err = ioutil.WriteFile(articlePath, data, 0644); err != nil {
 			return false, err
 		}
-		if _, err = s1.Exec(it.ID, sql.NullString{String: articlePath, Valid: len(articlePath) > 0}, "raw"); err != nil {
+		if _, err = ins.Exec(it.ID, sql.NullString{String: articlePath, Valid: len(articlePath) > 0}, "raw"); err != nil {
 			return false, err
+		}
+		doc, err := Readability(data)
+		if err == nil {
+			doc.Content()
+			it.Title = doc.Title
 		}
 	}
 
-	if _, err = s2.Exec(time.Now().UTC().Format(time.RFC3339), it.Status, it.ID); err != nil {
+	if _, err = upd.Exec(it.Title, time.Now().UTC().Format(time.RFC3339), it.Status, it.ID); err != nil {
 		return false, err
 	}
 	return true, nil
