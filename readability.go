@@ -8,10 +8,10 @@ import (
 	"github.com/mariusor/go-readability"
 )
 
-func ToReadableHtml(content []byte, outPath string) error {
+func Readability(content []byte) (*readability.Document, error) {
 	doc, err := readability.NewDocument(string(content))
 	if err != nil {
-		return err
+		return nil, err
 	}
 	doc.RemoveUnlikelyCandidates = true
 	doc.EnsureTitleInArticle = true
@@ -19,6 +19,14 @@ func ToReadableHtml(content []byte, outPath string) error {
 	doc.WhitelistTags = append(doc.WhitelistTags, "table", "tr", "td", "th", "tbody", "tcol")
 	doc.WhitelistAttrs["img"] = []string{"src", "title", "alt"}
 	//doc.WhitelistAttrs["p"] = []string{"style"}
+	return doc, nil
+}
+
+func ToReadableHtml(content []byte, outPath string) error {
+	doc, err := Readability(content)
+	if err != nil {
+		return err
+	}
 
 	if _, err := os.Stat(path.Dir(outPath)); err != nil && os.IsNotExist(err) {
 		if err = os.MkdirAll(path.Dir(outPath), 0755); err != nil {
