@@ -152,6 +152,11 @@ func createTables(c *sql.DB) error {
 	return nil
 }
 
+func sanitizeFileName(name string) string {
+	name = strings.TrimSpace(name)
+	return strings.ReplaceAll(name, "/", "-")
+}
+
 func LoadItem(it *Item, c *sql.DB, basePath string) (bool, error) {
 	contentIns := `INSERT INTO contents (item_id, path, type) VALUES(?, ?, ?);`
 	s1, err := c.Prepare(contentIns)
@@ -194,7 +199,7 @@ func LoadItem(it *Item, c *sql.DB, basePath string) (bool, error) {
 		}
 
 		// write received html to path
-		feedPath := path.Join(basePath, HtmlDir, strings.TrimSpace(it.Feed.Title))
+		feedPath := path.Join(basePath, HtmlDir, sanitizeFileName(it.Feed.Title))
 		articlePath := path.Join(feedPath, it.Path("html"))
 		if _, err := os.Stat(feedPath); err != nil && os.IsNotExist(err) {
 			if err = os.MkdirAll(feedPath, 0755); err != nil {

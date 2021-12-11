@@ -31,11 +31,11 @@ type Content struct {
 }
 
 func (i Item) Path(ext string) string {
-	return fmt.Sprintf("%05d %s.%s", i.FeedIndex, strings.TrimSpace(i.Title), ext)
+	return fmt.Sprintf("%05d %s.%s", i.FeedIndex, sanitizeFileName(i.Title), ext)
 }
 
 func Slug(s string) string {
-	s = strings.Map(func (r rune) rune {
+	s = strings.Map(func(r rune) rune {
 		switch r {
 		case ',', '?', '!', '\'', '`':
 			return -1
@@ -55,7 +55,6 @@ func Slug(s string) string {
 	}
 	return string(b)
 }
-
 
 func (i Item) PathSlug() string {
 	return fmt.Sprintf("%d-%s", i.FeedIndex, Slug(i.Title))
