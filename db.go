@@ -207,8 +207,8 @@ func LoadItem(it *Item, c *sql.DB, basePath string) (bool, error) {
 			}
 		}
 
-		if avgSize := feedItemsAverageSize(feedPath); avgSize > 0 && len(data) < avgSize/7 {
-			return false, errors.New("file size is smaller than 14% of average of existing ones")
+		if avgSize := feedItemsAverageSize(feedPath); avgSize > 0 && len(data) < avgSize/5 {
+			return false, errors.New("file size is smaller than 20% of average of existing ones")
 		}
 
 		if err = ioutil.WriteFile(articlePath, data, 0644); err != nil {
