@@ -11,10 +11,10 @@ import (
 )
 
 var (
-	SMTPServer = "smtp.example.com"
-	SMTPPort = "587"
-	SMTPFrom = "feedsync@example.com"
-	SMTPPassword = ""
+	SMTPServer            = "smtp.example.com"
+	SMTPPort              = "587"
+	SMTPFrom              = "feedsync@example.com"
+	SMTPPassword          = ""
 	DefaultMyKindleSender = SMTPCreds{
 		Server:   SMTPServer,
 		Port:     SMTPPort,
@@ -24,6 +24,8 @@ var (
 	}
 )
 
+// SMTPCreds hold the authorization information for the Kindle target service.
+// This can be any valid SMTP account.
 type SMTPCreds struct {
 	Server   string `json:"server"`
 	Port     string `json:"port"`
@@ -40,6 +42,8 @@ func NewMyKindle(d DestinationService) MyKindleDestination {
 	return k
 }
 
+// MyKindleDestination represents the combination of a Kindle service target
+// with the myKindle email address of a specific user.
 type MyKindleDestination struct {
 	Target ServiceMyKindle `json:"target"`
 	To     string          `json:"to"`

@@ -2,7 +2,6 @@ package feeds
 
 import (
 	"encoding/json"
-	"fmt"
 	"log"
 	"path"
 
@@ -10,40 +9,16 @@ import (
 	"github.com/motemen/go-pocket/auth"
 )
 
-var PocketConsumerKey = ""
-
-type ServicePocket struct {
-	AppName     string `json:"app_name"`
-	ConsumerKey string `json:"consumer_key"`
-}
-
-func (p ServicePocket) Label() string {
-	return "Pocket"
-}
-
-func (p ServicePocket) Description() string {
-	return "Syncs to your Pocket account"
-}
-
-func (p ServicePocket) ValidContentTypes() []string {
-	return []string{"raw"}
-}
-
-func PocketInit() (*ServicePocket, error) {
-	if PocketConsumerKey == "" {
-		return nil, fmt.Errorf("no Pocket application key has been set up")
-	}
-	return &ServicePocket{ConsumerKey: PocketConsumerKey}, nil
-}
-
 func NewPocket(d DestinationService) PocketDestination {
-	p := PocketDestination{ }
+	p := PocketDestination{}
 	if d != nil {
 		p.Target = d.(ServicePocket)
 	}
 	return p
 }
 
+// PocketDestination represents the combination of a Pocket target service
+// with the Pocket user authorization required to make API calls for saving items.
 type PocketDestination struct {
 	Target       ServicePocket      `json:"target"`
 	Step         int                `json:"-"`
