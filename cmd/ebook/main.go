@@ -34,7 +34,7 @@ func main() {
 		basePath string
 		verbose  bool
 	)
-	flag.StringVar(&basePath, "path", "/tmp", "Base path")
+	flag.StringVar(&basePath, "path", ".cache", "Base path")
 	flag.BoolVar(&verbose, "verbose", false, "Output debugging messages")
 	flag.Parse()
 

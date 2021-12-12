@@ -289,8 +289,11 @@ func (t target) Handler(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
-	var basePath string
-	flag.StringVar(&basePath, "path", "/tmp", "Base path")
+	var (
+		listen, basePath string
+	)
+	flag.StringVar(&basePath, "path", ".cache", "Base path")
+	flag.StringVar(&listen, "listen", "localhost:3000", "The HTTP address to listen on")
 	flag.Parse()
 
 	basePath = path.Clean(basePath)
@@ -326,8 +329,7 @@ func main() {
 		}
 	}(ss)
 
-	listenDomain := "127.0.0.1"
-	log.Fatal(http.ListenAndServe(listenDomain+":3000", r))
+	log.Fatal(http.ListenAndServe(listen, r))
 }
 
 type index struct {
