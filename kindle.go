@@ -34,11 +34,6 @@ type SMTPCreds struct {
 	Password string `json:"password"`
 }
 
-func NewMyKindle(d DestinationService) MyKindleDestination {
-	k := MyKindleDestination{}
-	return k
-}
-
 // MyKindleDestination represents the combination of a Kindle service target
 // with the myKindle email address of a specific user.
 type MyKindleDestination struct {

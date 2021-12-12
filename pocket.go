@@ -9,11 +9,6 @@ import (
 	"github.com/motemen/go-pocket/auth"
 )
 
-func NewPocket(d DestinationService) PocketDestination {
-	p := PocketDestination{}
-	return p
-}
-
 // PocketDestination represents the combination of a Pocket target service
 // with the Pocket user authorization required to make API calls for saving items.
 type PocketDestination struct {

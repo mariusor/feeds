@@ -721,16 +721,12 @@ func RemoveSubscriptions(db *sql.DB, dest Destination, ids ...int) error {
 	return err
 }
 
-func LoadSubscriptions(db *sql.DB, d DestinationTarget) ([]Subscription, error) {
-	dest, err := LoadDestination(db, d)
-	if err != nil {
-		return nil, nil
-	}
+func LoadSubscriptions(db *sql.DB, d Destination) ([]Subscription, error) {
 	sel := `SELECT s.id, s.flags, f.id, f.flags, f.title, f.url, f.frequency, f.last_loaded, f.last_status
 FROM subscriptions s
 INNER JOIN feeds f ON f.id = s.feed_id
 WHERE s.destination_id = ? `
-	s, err := db.Query(sel, dest.ID)
+	s, err := db.Query(sel, d.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -739,7 +735,7 @@ WHERE s.destination_id = ? `
 	subs := make([]Subscription, 0)
 	for s.Next() {
 		sub := Subscription{
-			Destination: *dest,
+			Destination: d,
 			Feed:        Feed{},
 		}
 		s.Scan(

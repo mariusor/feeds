@@ -331,11 +331,11 @@ func (t target) HandleSubscriptions(w http.ResponseWriter, r *http.Request) {
 	)
 
 	if d, ok := s.Values["pocket"]; ok {
-		_, ok = d.(feeds.PocketDestination)
+		t.Destination["pocket"], ok = d.(feeds.PocketDestination)
 		haveDestination = haveDestination || ok
 	}
 	if d, ok := s.Values["kindle"]; ok {
-		_, ok = d.(feeds.PocketDestination)
+		t.Destination["myk"], ok = d.(feeds.MyKindleDestination)
 		haveDestination = haveDestination || ok
 	}
 	if !haveDestination {
@@ -367,12 +367,11 @@ func (t target) HandleSubscriptions(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		if d, ok := s.Values["pocket"]; ok {
-			t.Destination["pocket"], ok = d.(feeds.PocketDestination)
-			serv := feeds.ServicePocket{}
-			json.Unmarshal(dest.Credentials, &serv)
-			t.Service["pocket"] = &serv
-			if dest, err = feeds.LoadDestination(t.db, t.Destination["pocket"]); err == nil {
+		if d, ok := t.Destination["pocket"]; ok {
+			if dest, err = feeds.LoadDestination(t.db, d); err == nil {
+				serv := feeds.ServicePocket{}
+				json.Unmarshal(dest.Credentials, &serv)
+				t.Service["pocket"] = &serv
 				if err = feeds.RemoveSubscriptions(t.db, *dest, removeIds...); err != nil {
 					errorTpl.Execute(w, err)
 					return
@@ -384,12 +383,11 @@ func (t target) HandleSubscriptions(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		if d, ok := s.Values["kindle"]; ok {
-			t.Destination["myk"], ok = d.(feeds.MyKindleDestination)
-			serv := feeds.ServiceMyKindle{}
-			json.Unmarshal(dest.Credentials, &serv)
-			t.Service["myk"] = &serv
-			if dest, err = feeds.LoadDestination(t.db, t.Destination["myk"]); err == nil {
+		if d, ok := t.Destination["myk"]; ok {
+			if dest, err = feeds.LoadDestination(t.db, d); err == nil {
+				serv := feeds.ServiceMyKindle{}
+				json.Unmarshal(dest.Credentials, &serv)
+				t.Service["myk"] = &serv
 				if err = feeds.RemoveSubscriptions(t.db, *dest, removeIds...); err != nil {
 					errorTpl.Execute(w, err)
 					return
@@ -403,7 +401,14 @@ func (t target) HandleSubscriptions(w http.ResponseWriter, r *http.Request) {
 		t.r.Redirect(w, r, s, reqURL(r))
 		return
 	}
-	if t.Subscriptions, err = feeds.LoadSubscriptions(t.db, t.Destination["myk"]); err != nil {
+	for _, d := range t.Destination {
+		dest, _ = feeds.LoadDestination(t.db, d)
+	}
+	if dest == nil {
+		http.Redirect(w, r, "/", http.StatusSeeOther)
+		return
+	}
+	if t.Subscriptions, err = feeds.LoadSubscriptions(t.db, *dest); err != nil {
 		errorTpl.Execute(w, err)
 		return
 	}
@@ -672,7 +677,7 @@ func getPocketSession(s *sessions.Session, d feeds.DestinationService) feeds.Poc
 			return p
 		}
 	}
-	return feeds.NewPocket(d)
+	return feeds.PocketDestination{}
 }
 
 func getKindleSession(s *sessions.Session, d feeds.DestinationService) feeds.MyKindleDestination {
@@ -681,7 +686,7 @@ func getKindleSession(s *sessions.Session, d feeds.DestinationService) feeds.MyK
 			return p
 		}
 	}
-	return feeds.NewMyKindle(d)
+	return feeds.MyKindleDestination{}
 }
 
 type AddStatus struct {
