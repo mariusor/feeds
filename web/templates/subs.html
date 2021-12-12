@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Your subscriptions</title>
+</head>
+<body>
+<main>
+    {{ $destination := .Destination }}
+    <p>Name: {{ $destination.Username }}</p>
+    {{ template "subscriptions.html" . }}
+</main>
+</body>
+</html>

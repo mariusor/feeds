@@ -695,6 +695,27 @@ func SaveSubscriptions(c *sql.DB, d Destination, feeds ...Feed) error {
 	return nil
 }
 
+func RemoveSubscriptions(db *sql.DB, dest Destination, ids ...int) error {
+	delFmt := `DELETE FROM subscriptions WHERE destination_id = ? AND feed_id IN (%s)`
+	tokens := make([]string, 0)
+	params := []interface{}{dest.ID}
+	for _, id := range ids {
+		tokens = append(tokens, "?")
+		params = append(params, interface{}(id))
+	}
+	if len(tokens) == 0 {
+		return nil
+	}
+	del := fmt.Sprintf(delFmt, strings.Join(tokens, ", "))
+	s, err := db.Prepare(del)
+	if err != nil {
+		return err
+	}
+	defer s.Close()
+	_, err = s.Exec(params...)
+	return err
+}
+
 func LoadSubscriptions(db *sql.DB, d DestinationTarget) ([]Subscription, error) {
 	dest, err := LoadDestination(db, d)
 	if err != nil {

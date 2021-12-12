@@ -1,12 +1,12 @@
 Subscriptions:
 {{ $subscriptions := .Subscriptions }}
-<form action="/subscriptions">
+<form method="post" action="/subscriptions">
+<dl>
 {{ range $key, $feed := .Feeds }}
-    <label><input type="checkbox" name="{{ $feed.Title }}" value="{{$feed.ID}}" {{- if subscriptionEnabled $feed.ID $subscriptions }} checked{{end -}}/> {{ $feed.Title }}</label>
+    <dd>
+    <label><input type="checkbox" name="sub" value="{{$feed.ID}}" {{- if subscriptionEnabled $feed.ID $subscriptions }} checked{{end -}}/> {{ $feed.Title }}</label>
+    </dd>
 {{ end }}
-<br/>
+</dl>
 <button type="submit">Save</button>
 </form>
-
-<pre>{{ printf "%#v" .Feeds }}</pre>
-<pre>{{ printf "%#v" .Subscriptions }}</pre>

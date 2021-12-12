@@ -3,16 +3,20 @@ package main
 import (
 	"bytes"
 	"database/sql"
+	"encoding/binary"
 	"encoding/gob"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"html/template"
 	"io"
 	"log"
+	"math/rand"
 	"net/http"
 	"net/url"
 	"os"
 	"path"
+	"strconv"
 	"strings"
 	"time"
 
@@ -41,18 +45,14 @@ func (rr renderer) SessionInit(r *http.Request) *sessions.Session {
 
 func (rr renderer) Redirect(w http.ResponseWriter, r *http.Request, s *sessions.Session, url string) {
 	if s != nil {
-		if err := s.Save(w); err != nil {
-			errorTpl.Execute(w, fmt.Errorf("unable to save session: %w", err))
-			return
-		}
+		s.Save(w)
 	}
 	http.Redirect(w, r, url, http.StatusPermanentRedirect)
 }
 
 func (rr renderer) Write(w http.ResponseWriter, r *http.Request, s *sessions.Session, t interface{}) {
-	path := path.Join("web/templates/", rr.name)
 	paths := []string{
-		path,
+		path.Join("web/templates/", rr.name),
 		"web/templates/partials/services.html",
 		"web/templates/partials/new-feed.html",
 		"web/templates/partials/subscriptions.html",
@@ -145,40 +145,48 @@ func genRoutes(db *sql.DB, ss sessions.Store) *http.ServeMux {
 			}
 			r.HandleFunc(curPath, handlerFn)
 		}
-
 	}
+	r.HandleFunc("/subscriptions", genericTarget(db, ss, feedsListing.Feeds).HandleSubscriptions)
 	return r
 }
 
 func myKindleTarget(c *sql.DB, ss sessions.Store, f []feeds.Feed) target {
-	return target{
-		r:     R("myk", ss),
-		Feeds: f,
-		Service: feeds.ServiceMyKindle{
-			SendCredentials: feeds.DefaultMyKindleSender,
-		},
-		db: c,
+	t := target{
+		r:       R("myk", ss),
+		Feeds:   f,
+		Service: make(map[string]feeds.DestinationService),
+		db:      c,
 	}
+	t.Service["myk"] = feeds.ServiceMyKindle{
+		SendCredentials: feeds.DefaultMyKindleSender,
+	}
+	return t
+}
+
+func genericTarget(c *sql.DB, ss sessions.Store, f []feeds.Feed) target {
+	return target{r: R("subs", ss), Feeds: f, db: c}
 }
 
 func pocketTarget(c *sql.DB, curPath string, ss sessions.Store, p feeds.ServicePocket, f []feeds.Feed) target {
 	if p.AppName == "" {
 		p.AppName = "FeedSync"
 	}
-	return target{
-		URL:     fmt.Sprintf("http://localhost:3000%s", curPath),
+	t := target{
+		URLPath: curPath,
 		r:       R("pocket", ss),
 		Feeds:   f,
 		db:      c,
-		Service: p,
+		Service: make(map[string]feeds.DestinationService),
 	}
+	t.Service["pocket"] = feeds.ServicePocket{}
+	return t
 }
 
 type target struct {
 	r             renderer
-	URL           string
-	Service       feeds.DestinationService
-	Destination   feeds.DestinationTarget
+	URLPath       string
+	Service       map[string]feeds.DestinationService
+	Destination   map[string]feeds.DestinationTarget
 	Feeds         []feeds.Feed
 	Subscriptions []feeds.Subscription
 	db            *sql.DB
@@ -193,15 +201,47 @@ const (
 	PocketAuthNotStarted = 0
 )
 
-func HandlePocketTarget(db *sql.DB, pocket feeds.PocketDestination, url string) (feeds.DestinationTarget, error) {
+func (t target) HandleKindle(w http.ResponseWriter, r *http.Request) {
+	s := t.r.SessionInit(r)
+	service, _ := t.Service["myk"].(feeds.ServiceMyKindle)
+	kindle := getKindleSession(s, service)
+	if r.Method == http.MethodPost {
+		email := r.FormValue("myk_account")
+		if !strings.Contains(email, "@kindle.com") {
+			errorTpl.Execute(w, fmt.Errorf("please use a valid Kindle email address"))
+			return
+		}
+		kindle.To = email
+		if _, err := feeds.SaveDestination(t.db, kindle); err != nil {
+			errorTpl.Execute(w, err)
+			return
+		}
+	}
+	s.Values["kindle"] = kindle
+	t.Destination["myk"] = kindle
+	t.r.Redirect(w, r, s, "/subscriptions")
+}
+
+func (t target) HandlePocketTarget(w http.ResponseWriter, r *http.Request) {
+	s := t.r.SessionInit(r)
+	if _, ok := t.Service["pocket"].(feeds.ServicePocket); !ok {
+		errorTpl.Execute(w, fmt.Errorf("invalid service"))
+		return
+	}
+
+	redirUrl := reqURL(r)
+	pocket := getPocketSession(s, t.Service["pocket"])
+
 	switch pocket.Step {
 	case PocketAuthDisabled:
-		return pocket, fmt.Errorf("Pocket service it out of order")
+		errorTpl.Execute(w, fmt.Errorf("Pocket service it out of order"))
+		return
 	case PocketAuthNotStarted:
 		if pocket.RequestToken == nil {
-			requestToken, err := auth.ObtainRequestToken(pocket.Target.ConsumerKey, url)
+			requestToken, err := auth.ObtainRequestToken(pocket.Target.ConsumerKey, redirUrl)
 			if err != nil {
-				return nil, fmt.Errorf("invalid Pocket authorization data")
+				errorTpl.Execute(w, fmt.Errorf("invalid Pocket authorization data"))
+				return
 			}
 			pocket.RequestToken = requestToken
 			pocket.Step = PocketAuthStepTokenGenerated
@@ -209,7 +249,7 @@ func HandlePocketTarget(db *sql.DB, pocket feeds.PocketDestination, url string) 
 		fallthrough
 	case PocketAuthStepTokenGenerated:
 		if pocket.AuthorizeURL == "" && pocket.RequestToken != nil {
-			pocket.AuthorizeURL = auth.GenerateAuthorizationURL(pocket.RequestToken, url)
+			pocket.AuthorizeURL = auth.GenerateAuthorizationURL(pocket.RequestToken, redirUrl)
 		}
 		if pocket.AuthorizeURL != "" {
 			pocket.Step = PocketAuthStepAuthLinkGenerated
@@ -228,64 +268,131 @@ func HandlePocketTarget(db *sql.DB, pocket feeds.PocketDestination, url string) 
 				pocket.Username = authTok.Username
 				pocket.AccessToken = authTok.AccessToken
 				pocket.Step = PocketAuthStepAuthorized
-				if _, err := feeds.SaveDestination(db, pocket); err != nil {
-					return nil, err
+				if _, err := feeds.SaveDestination(t.db, pocket); err != nil {
+					errorTpl.Execute(w, err)
+					return
 				}
 			}
 		}
-		fallthrough
+		s.Values["pocket"] = pocket
+		t.Destination["pocket"] = pocket
+		t.r.Redirect(w, r, s, reqURL(r))
 	case PocketAuthStepAuthorized:
+		s.Values["pocket"] = pocket
+		t.Destination["pocket"] = pocket
+		t.r.Redirect(w, r, s, "/subscriptions")
+		return
 	}
-	return pocket, nil
+	s.Values["pocket"] = pocket
+	t.Destination["pocket"] = pocket
+	t.r.Write(w, r, s, t)
 }
 
-func (t target) Handler(w http.ResponseWriter, r *http.Request) {
+func (t target) HandleSubscriptions(w http.ResponseWriter, r *http.Request) {
 	s := t.r.SessionInit(r)
-	if strings.ToLower(t.Service.Label()) == "pocket" {
-		service, ok := t.Service.(feeds.ServicePocket)
-		if !ok {
-			errorTpl.Execute(w, fmt.Errorf("invalid service"))
-			return
-		}
-		pocket, err := HandlePocketTarget(t.db, getPocketSession(s, service), t.URL)
-		if err != nil {
-			errorTpl.Execute(w, err)
-			return
-		}
-		s.Values["pocket"] = pocket
-		t.Destination = pocket
+	var (
+		dest            *feeds.Destination
+		err             error
+		haveDestination bool
+	)
+
+	if d, ok := s.Values["pocket"]; ok {
+		_, ok = d.(feeds.PocketDestination)
+		haveDestination = haveDestination || ok
 	}
-	var err error
-	if strings.ToLower(t.Service.Label()) == "mykindle" {
-		service, _ := t.Service.(feeds.ServiceMyKindle)
-		kindle := getKindleSession(s, service)
-		if r.Method == http.MethodPost {
-			email := r.FormValue("myk_account")
-			if !strings.Contains(email, "@kindle.com") {
-				errorTpl.Execute(w, fmt.Errorf("please use a valid Kindle email address"))
-				return
-			}
-			kindle.To = email
-			if _, err = feeds.SaveDestination(t.db, kindle); err != nil {
-				errorTpl.Execute(w, err)
-				return
+	if d, ok := s.Values["kindle"]; ok {
+		_, ok = d.(feeds.PocketDestination)
+		haveDestination = haveDestination || ok
+	}
+	if !haveDestination {
+		http.Redirect(w, r, "/", http.StatusSeeOther)
+		return
+	}
+	if r.Method == http.MethodPost {
+		r.ParseForm()
+		feedIds := make([]int, 0)
+		removeIds := make([]int, 0)
+		if subs, ok := r.Form["sub"]; ok {
+			for _, sub := range subs {
+				if id, err := strconv.ParseInt(sub, 0, 0); err == nil {
+					feedIds = append(feedIds, int(id))
+				}
 			}
 		}
-		s.Values["kindle"] = kindle
-		t.Destination = kindle
+		ff := make([]feeds.Feed, 0)
+		for _, feed := range t.Feeds {
+			remove := true
+			for _, id := range feedIds {
+				if id == feed.ID {
+					ff = append(ff, feed)
+					remove = false
+				}
+			}
+			if remove {
+				removeIds = append(removeIds, feed.ID)
+			}
+		}
+
+		if d, ok := s.Values["pocket"]; ok {
+			t.Destination["pocket"], ok = d.(feeds.PocketDestination)
+			serv := feeds.ServicePocket{}
+			json.Unmarshal(dest.Credentials, &serv)
+			t.Service["pocket"] = &serv
+			if dest, err = feeds.LoadDestination(t.db, t.Destination["pocket"]); err == nil {
+				if err = feeds.RemoveSubscriptions(t.db, *dest, removeIds...); err != nil {
+					errorTpl.Execute(w, err)
+					return
+				}
+				if err = feeds.SaveSubscriptions(t.db, *dest, ff...); err != nil {
+					errorTpl.Execute(w, err)
+					return
+				}
+			}
+		}
+
+		if d, ok := s.Values["kindle"]; ok {
+			t.Destination["myk"], ok = d.(feeds.MyKindleDestination)
+			serv := feeds.ServiceMyKindle{}
+			json.Unmarshal(dest.Credentials, &serv)
+			t.Service["myk"] = &serv
+			if dest, err = feeds.LoadDestination(t.db, t.Destination["myk"]); err == nil {
+				if err = feeds.RemoveSubscriptions(t.db, *dest, removeIds...); err != nil {
+					errorTpl.Execute(w, err)
+					return
+				}
+				if err = feeds.SaveSubscriptions(t.db, *dest, ff...); err != nil {
+					errorTpl.Execute(w, err)
+					return
+				}
+			}
+		}
+		t.r.Redirect(w, r, s, reqURL(r))
+		return
 	}
-	subscriptions, err := feeds.LoadSubscriptions(t.db, t.Destination)
-	if err != nil {
+	if t.Subscriptions, err = feeds.LoadSubscriptions(t.db, t.Destination["myk"]); err != nil {
 		errorTpl.Execute(w, err)
 		return
 	}
-	t.Subscriptions = subscriptions
-	/*
-		if err = feeds.SaveSubscriptions(t.db, *dest, t.Feeds...); err != nil {
-			errorTpl.Execute(w, err)
-		}
-	*/
 	t.r.Write(w, r, s, t)
+}
+
+func reqURL(r *http.Request) string {
+	scheme := "http"
+	if r.TLS != nil {
+		scheme = "https"
+	}
+	return fmt.Sprintf("%s://%s%s", scheme, r.Host, r.RequestURI)
+}
+
+func (t target) Handler(w http.ResponseWriter, r *http.Request) {
+	if strings.ToLower(t.Service["pocket"].Label()) == "pocket" {
+		t.HandlePocketTarget(w, r)
+		return
+	}
+	if strings.ToLower(t.Service["myk"].Label()) == "mykindle" {
+		t.HandleKindle(w, r)
+		return
+	}
 }
 
 func getSessionKey() []byte {

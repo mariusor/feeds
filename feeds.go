@@ -26,6 +26,10 @@ type Feed struct {
 	Flags      int
 }
 
+func (f Feed) Enabled() bool {
+	return !(f.Flags&FlagsDisabled == FlagsDisabled)
+}
+
 const (
 	TypeRSS  = "rss"
 	TypeHTML = "html"
