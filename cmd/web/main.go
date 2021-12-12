@@ -288,6 +288,14 @@ func (t target) Handler(w http.ResponseWriter, r *http.Request) {
 	t.r.Write(w, r, s, t)
 }
 
+func getSessionKey() []byte {
+	r := rand.New(rand.NewSource(time.Now().UnixMicro()))
+	b := make([]byte, 16)
+	binary.LittleEndian.PutUint64(b, r.Uint64())
+	binary.LittleEndian.PutUint64(b[8:], r.Uint64())
+	return b
+}
+
 func main() {
 	var (
 		listen, basePath string
@@ -307,10 +315,8 @@ func main() {
 	}
 	defer c.Close()
 
-	keys := [][]byte{
-		{0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8, 0x9, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16},
-		{0x2, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8, 0x9, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x11},
-	}
+	keys := [][]byte{getSessionKey()}
+
 	ss := sessions.NewCookieStore(keys...)
 	ss.Config.Domain = "localhost"
 	r := genRoutes(c, ss)
