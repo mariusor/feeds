@@ -11,9 +11,6 @@ import (
 
 func NewPocket(d DestinationService) PocketDestination {
 	p := PocketDestination{}
-	if d != nil {
-		p.Target = d.(ServicePocket)
-	}
 	return p
 }
 

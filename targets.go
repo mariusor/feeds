@@ -54,6 +54,7 @@ func (r ServiceReMarkable) ValidContentTypes() []string {
 }
 
 var PocketConsumerKey = ""
+var PocketAppName = "FeedSync"
 
 // ServicePocket is the target for Pocket integration
 // It consists of OAuth client credentials for a Pocket developer app.

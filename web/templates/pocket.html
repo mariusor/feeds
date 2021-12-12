@@ -6,8 +6,8 @@
 </head>
 <body>
 <main>
-{{ $destination := .Destination }}
-{{ $service := .Service }}
+{{ $destination := .Destination.pocket }}
+{{ $service := .Service.pocket }}
     <p>After successfully authorizing the "{{ $service.AppName }}" application you will receive a document with a code to confirm your subscription.</p>
     {{ if gt (len $destination.AuthorizeURL) 0 }}<a href="{{ $destination.AuthorizeURL }}">Authorize</a>{{ end }}
 </main>

@@ -5,7 +5,7 @@
     <title>Register your Kindle device</title>
 </head>
 <body>
-{{ $destination := .Destination }}
+{{ $destination := .Destination.myk }}
 <p>
     You will receive an article containing a confirmation code.<br/>
     But first you need to add the email address <code>{{ $destination.Service.SendCredentials.From }}</code>

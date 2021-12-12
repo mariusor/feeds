@@ -150,35 +150,50 @@ func genRoutes(db *sql.DB, ss sessions.Store) *http.ServeMux {
 	return r
 }
 
+var defaultKindleService = feeds.ServiceMyKindle{
+	SendCredentials: feeds.DefaultMyKindleSender,
+}
+
 func myKindleTarget(c *sql.DB, ss sessions.Store, f []feeds.Feed) target {
 	t := target{
-		r:       R("myk", ss),
-		Feeds:   f,
-		Service: make(map[string]feeds.DestinationService),
-		db:      c,
+		r:           R("myk", ss),
+		Feeds:       f,
+		Service:     make(map[string]feeds.DestinationService),
+		Destination: make(map[string]feeds.DestinationTarget),
+		db:          c,
 	}
-	t.Service["myk"] = feeds.ServiceMyKindle{
-		SendCredentials: feeds.DefaultMyKindleSender,
-	}
+	t.Service["myk"] = &defaultKindleService
 	return t
 }
 
 func genericTarget(c *sql.DB, ss sessions.Store, f []feeds.Feed) target {
-	return target{r: R("subs", ss), Feeds: f, db: c}
+	t := target{
+		r:           R("subs", ss),
+		Feeds:       f,
+		db:          c,
+		Service:     make(map[string]feeds.DestinationService),
+		Destination: make(map[string]feeds.DestinationTarget),
+	}
+	t.Service["pocket"] = &defaultPocketService
+	t.Service["myk"] = &defaultKindleService
+	return t
+}
+
+var defaultPocketService = feeds.ServicePocket{
+	AppName:     feeds.PocketAppName,
+	ConsumerKey: feeds.PocketConsumerKey,
 }
 
 func pocketTarget(c *sql.DB, curPath string, ss sessions.Store, p feeds.ServicePocket, f []feeds.Feed) target {
-	if p.AppName == "" {
-		p.AppName = "FeedSync"
-	}
 	t := target{
-		URLPath: curPath,
-		r:       R("pocket", ss),
-		Feeds:   f,
-		db:      c,
-		Service: make(map[string]feeds.DestinationService),
+		URLPath:     curPath,
+		r:           R("pocket", ss),
+		Feeds:       f,
+		db:          c,
+		Service:     make(map[string]feeds.DestinationService),
+		Destination: make(map[string]feeds.DestinationTarget),
 	}
-	t.Service["pocket"] = feeds.ServicePocket{}
+	t.Service["pocket"] = &defaultPocketService
 	return t
 }
 
@@ -203,7 +218,16 @@ const (
 
 func (t target) HandleKindle(w http.ResponseWriter, r *http.Request) {
 	s := t.r.SessionInit(r)
-	service, _ := t.Service["myk"].(feeds.ServiceMyKindle)
+	var service *feeds.ServiceMyKindle
+	if ss, ok := t.Service["myk"]; ok {
+		if sss, ok := ss.(*feeds.ServiceMyKindle); ok {
+			service = sss
+		}
+	}
+	if service == nil {
+		errorTpl.Execute(w, fmt.Errorf("invalid service"))
+		return
+	}
 	kindle := getKindleSession(s, service)
 	if r.Method == http.MethodPost {
 		email := r.FormValue("myk_account")
@@ -216,21 +240,29 @@ func (t target) HandleKindle(w http.ResponseWriter, r *http.Request) {
 			errorTpl.Execute(w, err)
 			return
 		}
+		t.r.Redirect(w, r, s, "/subscriptions")
 	}
 	s.Values["kindle"] = kindle
+	t.Service["myk"] = service
 	t.Destination["myk"] = kindle
-	t.r.Redirect(w, r, s, "/subscriptions")
+	t.r.Write(w, r, s, t)
 }
 
 func (t target) HandlePocketTarget(w http.ResponseWriter, r *http.Request) {
 	s := t.r.SessionInit(r)
-	if _, ok := t.Service["pocket"].(feeds.ServicePocket); !ok {
+	var service *feeds.ServicePocket
+	if ss, ok := t.Service["pocket"]; ok {
+		if sss, ok := ss.(*feeds.ServicePocket); ok {
+			service = sss
+		}
+	}
+	if service == nil {
 		errorTpl.Execute(w, fmt.Errorf("invalid service"))
 		return
 	}
 
 	redirUrl := reqURL(r)
-	pocket := getPocketSession(s, t.Service["pocket"])
+	pocket := getPocketSession(s, service)
 
 	switch pocket.Step {
 	case PocketAuthDisabled:
@@ -238,7 +270,7 @@ func (t target) HandlePocketTarget(w http.ResponseWriter, r *http.Request) {
 		return
 	case PocketAuthNotStarted:
 		if pocket.RequestToken == nil {
-			requestToken, err := auth.ObtainRequestToken(pocket.Target.ConsumerKey, redirUrl)
+			requestToken, err := auth.ObtainRequestToken(service.ConsumerKey, redirUrl)
 			if err != nil {
 				errorTpl.Execute(w, fmt.Errorf("invalid Pocket authorization data"))
 				return
@@ -256,7 +288,7 @@ func (t target) HandlePocketTarget(w http.ResponseWriter, r *http.Request) {
 		}
 	case PocketAuthStepAuthLinkGenerated:
 		if pocket.AccessToken == "" && pocket.RequestToken != nil {
-			if authTok, err := auth.ObtainAccessToken(pocket.Target.ConsumerKey, pocket.RequestToken); err != nil {
+			if authTok, err := auth.ObtainAccessToken(service.ConsumerKey, pocket.RequestToken); err != nil {
 				if strings.Contains(err.Error(), "403") {
 					pocket.Step = PocketAuthNotStarted
 				}
@@ -276,10 +308,12 @@ func (t target) HandlePocketTarget(w http.ResponseWriter, r *http.Request) {
 		}
 		s.Values["pocket"] = pocket
 		t.Destination["pocket"] = pocket
+		t.Service["pocket"] = service
 		t.r.Redirect(w, r, s, reqURL(r))
 	case PocketAuthStepAuthorized:
 		s.Values["pocket"] = pocket
 		t.Destination["pocket"] = pocket
+		t.Service["pocket"] = service
 		t.r.Redirect(w, r, s, "/subscriptions")
 		return
 	}
@@ -385,11 +419,12 @@ func reqURL(r *http.Request) string {
 }
 
 func (t target) Handler(w http.ResponseWriter, r *http.Request) {
-	if strings.ToLower(t.Service["pocket"].Label()) == "pocket" {
+	which := path.Base(r.URL.Path)
+	if which == "pocket" {
 		t.HandlePocketTarget(w, r)
 		return
 	}
-	if strings.ToLower(t.Service["myk"].Label()) == "mykindle" {
+	if which == "myk" {
 		t.HandleKindle(w, r)
 		return
 	}

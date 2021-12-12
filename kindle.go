@@ -36,9 +36,6 @@ type SMTPCreds struct {
 
 func NewMyKindle(d DestinationService) MyKindleDestination {
 	k := MyKindleDestination{}
-	if d != nil {
-		k.Target = d.(ServiceMyKindle)
-	}
 	return k
 }
 
