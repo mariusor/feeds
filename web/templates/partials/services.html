@@ -2,7 +2,7 @@
 {{ $destinations := .Destinations }}
 <dl>
     {{ range $typ, $service := $services }}
-    <dt><a href="/register/{{ sluggify $typ }}">{{$service.Label}}</a> {{ if ServiceEnabled $destinations $typ }}<span title="connected">&#129969;</span>{{ end }}</dt>
+    <dt><a href="/register/{{ sluggify $typ }}">{{$service.Label}}</a> {{ if serviceEnabled $destinations $typ }}<span title="connected">&#129969;</span>{{ end }}</dt>
     <dd>{{$service.Description}}</dd>
     {{ else }}
     <dt>No services available at the moment.</dt>

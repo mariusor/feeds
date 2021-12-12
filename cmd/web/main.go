@@ -357,11 +357,11 @@ var tplFuncs = func(r *http.Request) template.FuncMap {
 		"sluggify": func(s string) template.HTMLAttr {
 			return template.HTMLAttr(feeds.Slug(s))
 		},
-		"request":        func() http.Request { return *r },
-		"hasHtml":        has("html"),
-		"hasMobi":        has("mobi"),
-		"hasEPub":        has("epub"),
-		"ServiceEnabled": serviceEnabled,
+		"request":             func() http.Request { return *r },
+		"hasHtml":             has("html"),
+		"hasMobi":             has("mobi"),
+		"hasEPub":             has("epub"),
+		"serviceEnabled":      serviceEnabled,
 	}
 }
 
