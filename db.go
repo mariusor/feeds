@@ -170,6 +170,7 @@ func LoadItem(it *Item, c *sql.DB, basePath string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
+	defer upd.Close()
 
 	link := it.URL.String()
 	if !path.IsAbs(basePath) {
@@ -254,6 +255,7 @@ func SaveFeeds(c *sql.DB, feeds ...Feed) error {
 		return err
 	}
 	defer s.Close()
+
 	for _, f := range feeds {
 		if _, err := s.Exec(f.Title, f.Frequency.Seconds(), f.Author, f.URL.String(), f.Flags); err != nil {
 			return err
@@ -683,11 +685,14 @@ func SaveSubscriptions(c *sql.DB, d Destination, feeds ...Feed) error {
 	if err != nil {
 		return err
 	}
+	defer s.Close()
+
 	d.Created = time.Now().UTC()
 	for _, f := range feeds {
-		if f.URL == nil {
+		if f.ID == 0 {
 			continue
 		}
+
 		if _, err := s.Exec(f.ID, d.ID, d.Created.Format(time.RFC3339)); err != nil {
 			return err
 		}
