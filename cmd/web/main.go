@@ -55,6 +55,7 @@ func (rr renderer) Write(w http.ResponseWriter, r *http.Request, s *sessions.Ses
 		path,
 		"web/templates/partials/services.html",
 		"web/templates/partials/new-feed.html",
+		"web/templates/partials/subscriptions.html",
 	}
 	tpl, err := template.New(rr.name).Funcs(tplFuncs(r)).ParseFiles(paths...)
 	if err != nil {
@@ -174,12 +175,13 @@ func pocketTarget(c *sql.DB, curPath string, ss sessions.Store, p feeds.ServiceP
 }
 
 type target struct {
-	r           renderer
-	URL         string
-	Service     feeds.DestinationService
-	Destination feeds.DestinationTarget
-	Feeds       []feeds.Feed
-	db          *sql.DB
+	r             renderer
+	URL           string
+	Service       feeds.DestinationService
+	Destination   feeds.DestinationTarget
+	Feeds         []feeds.Feed
+	Subscriptions []feeds.Subscription
+	db            *sql.DB
 }
 
 const (
@@ -191,59 +193,65 @@ const (
 	PocketAuthNotStarted = 0
 )
 
+func HandlePocketTarget(db *sql.DB, pocket feeds.PocketDestination, url string) (feeds.DestinationTarget, error) {
+	switch pocket.Step {
+	case PocketAuthDisabled:
+		return pocket, fmt.Errorf("Pocket service it out of order")
+	case PocketAuthNotStarted:
+		if pocket.RequestToken == nil {
+			requestToken, err := auth.ObtainRequestToken(pocket.Target.ConsumerKey, url)
+			if err != nil {
+				return nil, fmt.Errorf("invalid Pocket authorization data")
+			}
+			pocket.RequestToken = requestToken
+			pocket.Step = PocketAuthStepTokenGenerated
+		}
+		fallthrough
+	case PocketAuthStepTokenGenerated:
+		if pocket.AuthorizeURL == "" && pocket.RequestToken != nil {
+			pocket.AuthorizeURL = auth.GenerateAuthorizationURL(pocket.RequestToken, url)
+		}
+		if pocket.AuthorizeURL != "" {
+			pocket.Step = PocketAuthStepAuthLinkGenerated
+		}
+	case PocketAuthStepAuthLinkGenerated:
+		if pocket.AccessToken == "" && pocket.RequestToken != nil {
+			if authTok, err := auth.ObtainAccessToken(pocket.Target.ConsumerKey, pocket.RequestToken); err != nil {
+				if strings.Contains(err.Error(), "403") {
+					pocket.Step = PocketAuthNotStarted
+				}
+				if strings.Contains(err.Error(), "429") {
+					pocket.Step = PocketAuthDisabled
+				}
+			} else {
+				pocket.RequestToken = nil
+				pocket.Username = authTok.Username
+				pocket.AccessToken = authTok.AccessToken
+				pocket.Step = PocketAuthStepAuthorized
+				if _, err := feeds.SaveDestination(db, pocket); err != nil {
+					return nil, err
+				}
+			}
+		}
+		fallthrough
+	case PocketAuthStepAuthorized:
+	}
+	return pocket, nil
+}
+
 func (t target) Handler(w http.ResponseWriter, r *http.Request) {
 	s := t.r.SessionInit(r)
-	var dest *feeds.Destination
 	if strings.ToLower(t.Service.Label()) == "pocket" {
-		service, _ := t.Service.(feeds.ServicePocket)
-		pocket := getPocketSession(s, service)
-		switch pocket.Step {
-		case PocketAuthDisabled:
-			errorTpl.Execute(w, fmt.Errorf("Pocket service it out of order"))
+		service, ok := t.Service.(feeds.ServicePocket)
+		if !ok {
+			errorTpl.Execute(w, fmt.Errorf("invalid service"))
 			return
-		case PocketAuthNotStarted:
-			if pocket.RequestToken == nil {
-				var err error
-				requestToken, err := auth.ObtainRequestToken(service.ConsumerKey, t.URL)
-				if err != nil {
-					errorTpl.Execute(w, fmt.Errorf("invalid Pocket authorization data"))
-					return
-				}
-				pocket.RequestToken = requestToken
-				pocket.Step = PocketAuthStepTokenGenerated
-			}
-			fallthrough
-		case PocketAuthStepTokenGenerated:
-			if pocket.AuthorizeURL == "" && pocket.RequestToken != nil {
-				pocket.AuthorizeURL = auth.GenerateAuthorizationURL(pocket.RequestToken, t.URL)
-			}
-			if pocket.AuthorizeURL != "" {
-				pocket.Step = PocketAuthStepAuthLinkGenerated
-			}
-		case PocketAuthStepAuthLinkGenerated:
-			if pocket.AccessToken == "" && pocket.RequestToken != nil {
-				if authTok, err := auth.ObtainAccessToken(service.ConsumerKey, pocket.RequestToken); err != nil {
-					if strings.Contains(err.Error(), "403") {
-						pocket.Step = PocketAuthNotStarted
-					}
-					if strings.Contains(err.Error(), "429") {
-						pocket.Step = PocketAuthDisabled
-					}
-				} else {
-					pocket.RequestToken = nil
-					pocket.Username = authTok.Username
-					pocket.AccessToken = authTok.AccessToken
-					pocket.Step = PocketAuthStepAuthorized
-					if dest, err = feeds.SaveDestination(t.db, pocket); err != nil {
-						errorTpl.Execute(w, err)
-						return
-					}
-				}
-			}
-			fallthrough
-		case PocketAuthStepAuthorized:
 		}
-
+		pocket, err := HandlePocketTarget(t.db, getPocketSession(s, service), t.URL)
+		if err != nil {
+			errorTpl.Execute(w, err)
+			return
+		}
 		s.Values["pocket"] = pocket
 		t.Destination = pocket
 	}
@@ -258,7 +266,7 @@ func (t target) Handler(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			kindle.To = email
-			if dest, err = feeds.SaveDestination(t.db, kindle); err != nil {
+			if _, err = feeds.SaveDestination(t.db, kindle); err != nil {
 				errorTpl.Execute(w, err)
 				return
 			}
@@ -266,11 +274,17 @@ func (t target) Handler(w http.ResponseWriter, r *http.Request) {
 		s.Values["kindle"] = kindle
 		t.Destination = kindle
 	}
-	if dest != nil {
+	subscriptions, err := feeds.LoadSubscriptions(t.db, t.Destination)
+	if err != nil {
+		errorTpl.Execute(w, err)
+		return
+	}
+	t.Subscriptions = subscriptions
+	/*
 		if err = feeds.SaveSubscriptions(t.db, *dest, t.Feeds...); err != nil {
 			errorTpl.Execute(w, err)
 		}
-	}
+	*/
 	t.r.Write(w, r, s, t)
 }
 
@@ -362,9 +376,18 @@ var tplFuncs = func(r *http.Request) template.FuncMap {
 		"hasMobi":             has("mobi"),
 		"hasEPub":             has("epub"),
 		"serviceEnabled":      serviceEnabled,
+		"subscriptionEnabled": subscriptionEnabled,
 	}
 }
 
+func subscriptionEnabled(feedId int, subscriptions []feeds.Subscription) bool {
+	for _, sub := range subscriptions {
+		if sub.Feed.ID == feedId {
+			return true
+		}
+	}
+	return false
+}
 func serviceEnabled(dest []feeds.DestinationTarget, typ string) bool {
 	for _, d := range dest {
 		if d.Type() == typ {

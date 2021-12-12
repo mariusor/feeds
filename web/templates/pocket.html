@@ -9,6 +9,7 @@
 {{ $destination := .Destination }}
 {{ if gt (len $destination.Username) 0 }}
     <p>Name: {{ $destination.Username }}</p>
+    {{ template "subscriptions.html" . }}
 {{ else }}
 {{ $service := .Service }}
     <p>After successfully authorizing the "{{ $service.AppName }}" application you will receive a document with a code to confirm your subscription.</p>

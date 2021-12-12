@@ -1,0 +1,12 @@
+Subscriptions:
+{{ $subscriptions := .Subscriptions }}
+<form action="/subscriptions">
+{{ range $key, $feed := .Feeds }}
+    <label><input type="checkbox" name="{{ $feed.Title }}" value="{{$feed.ID}}" {{- if subscriptionEnabled $feed.ID $subscriptions }} checked{{end -}}/> {{ $feed.Title }}</label>
+{{ end }}
+<br/>
+<button type="submit">Save</button>
+</form>
+
+<pre>{{ printf "%#v" .Feeds }}</pre>
+<pre>{{ printf "%#v" .Subscriptions }}</pre>
