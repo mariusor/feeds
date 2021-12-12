@@ -16,13 +16,14 @@ import (
 )
 
 type Feed struct {
-	ID        int
-	URL       *url.URL
-	Title     string
-	Author    string
-	Frequency time.Duration
-	Updated   time.Time
-	Flags     int
+	ID         int
+	URL        *url.URL
+	Title      string
+	Author     string
+	Frequency  time.Duration
+	Updated    time.Time
+	LastStatus int
+	Flags      int
 }
 
 const (

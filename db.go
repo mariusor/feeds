@@ -613,7 +613,7 @@ WHERE type = ? AND json_extract(credentials, '$.username') = ?`
 	if dd.ID > 0 {
 		return &dd, nil
 	}
-	return nil, nil
+	return nil, fmt.Errorf("unable to find destination entry for %s: %s", d.Type(), d.Username)
 }
 
 func loadDestination(c *sql.DB, d DestinationTarget) (*Destination, error) {
@@ -693,6 +693,38 @@ func SaveSubscriptions(c *sql.DB, d Destination, feeds ...Feed) error {
 		}
 	}
 	return nil
+}
+
+func LoadSubscriptions(db *sql.DB, d DestinationTarget) ([]Subscription, error) {
+	dest, err := loadDestination(db, d)
+	if err != nil {
+		return nil, err
+	}
+	sel := `SELECT s.id, s.flags, f.id, f.flags, f.title, f.url, f.frequency, f.last_loaded, f.last_status
+FROM subscriptions s
+INNER JOIN feeds f ON f.id = s.feed_id
+WHERE s.destination_id = ? `
+	s, err := db.Query(sel, dest.ID)
+	if err != nil {
+		return nil, err
+	}
+	defer s.Close()
+
+	subs := make([]Subscription, 0)
+	for s.Next() {
+		sub := Subscription{
+			Destination: *dest,
+			Feed:        Feed{},
+		}
+		s.Scan(
+			&sub.ID, &sub.Flags,
+			&sub.Feed.ID, &sub.Feed.Flags, &sub.Feed.Title, &sub.Feed.URL, &sub.Feed.Frequency, &sub.Feed.Updated, &sub.Feed.LastStatus,
+		)
+		if sub.ID > 0 {
+			subs = append(subs, sub)
+		}
+	}
+	return subs, nil
 }
 
 func insertTarget(c *sql.DB, t DispatchItem) error {
