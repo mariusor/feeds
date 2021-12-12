@@ -616,7 +616,7 @@ WHERE type = ? AND json_extract(credentials, '$.username') = ?`
 	return nil, fmt.Errorf("unable to find destination entry for %s: %s", d.Type(), d.Username)
 }
 
-func loadDestination(c *sql.DB, d DestinationTarget) (*Destination, error) {
+func LoadDestination(c *sql.DB, d DestinationTarget) (*Destination, error) {
 	switch dd := d.(type) {
 	case PocketDestination:
 		return loadPocketDestination(c, dd)
@@ -652,7 +652,7 @@ func SaveDestination(c *sql.DB, d DestinationTarget) (*Destination, error) {
 		return nil, fmt.Errorf("unable to marshal credentials: %w", err)
 	}
 
-	dd, err := loadDestination(c, d)
+	dd, err := LoadDestination(c, d)
 	if err != nil {
 		return nil, err
 	}
@@ -696,9 +696,9 @@ func SaveSubscriptions(c *sql.DB, d Destination, feeds ...Feed) error {
 }
 
 func LoadSubscriptions(db *sql.DB, d DestinationTarget) ([]Subscription, error) {
-	dest, err := loadDestination(db, d)
+	dest, err := LoadDestination(db, d)
 	if err != nil {
-		return nil, err
+		return nil, nil
 	}
 	sel := `SELECT s.id, s.flags, f.id, f.flags, f.title, f.url, f.frequency, f.last_loaded, f.last_status
 FROM subscriptions s
