@@ -629,7 +629,7 @@ func LoadDestination(c *sql.DB, d DestinationTarget) (*Destination, error) {
 }
 
 func insertDestination(c *sql.DB, d Destination) (*Destination, error) {
-	sql := `INSERT INTO destinations (type, credentials, flags, created) VALUES(?, ?, ?);`
+	sql := `INSERT INTO destinations (type, credentials, flags, created) VALUES(?, ?, ?, ?);`
 	r, err := c.Exec(sql, d.Type, d.Credentials, d.Flags, time.Now().UTC().Format(time.RFC3339))
 	if err != nil {
 		return nil, err
