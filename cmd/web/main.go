@@ -26,7 +26,12 @@ import (
 	"github.com/motemen/go-pocket/auth"
 )
 
-var errorTpl = template.Must(template.New("error.html").ParseFiles("web/templates/error.html"))
+var (
+	sessionName  = "_s"
+	sessionStore sessions.Store
+
+	errorTpl = template.Must(template.New("error.html").ParseFiles("web/templates/error.html"))
+)
 
 type renderer struct {
 	name string
@@ -114,8 +119,9 @@ var validFileTypes = [...]string{
 	"epub",
 }
 
-func genRoutes(db *sql.DB, ss sessions.Store) *http.ServeMux {
+func genRoutes(db *sql.DB) *http.ServeMux {
 	r := http.NewServeMux()
+	ss := sessionStore
 
 	allFeeds, err := feeds.GetFeeds(db)
 	if err != nil {
@@ -187,7 +193,7 @@ func myKindleTarget(c *sql.DB, ss sessions.Store, f []feeds.Feed) target {
 
 func genericTarget(c *sql.DB, ss sessions.Store, f []feeds.Feed) target {
 	t := target{
-		r:           R("subs", ss),
+		r:           R("subscriptions", ss),
 		Feeds:       f,
 		db:          c,
 		Service:     make(map[string]feeds.DestinationService),
@@ -388,6 +394,7 @@ func (t target) HandleSubscriptions(w http.ResponseWriter, r *http.Request) {
 
 		if d, ok := t.Destination["pocket"]; ok {
 			if dest, err = feeds.LoadDestination(t.db, d); err == nil {
+				// TODO(marius): error on empty dest
 				serv := feeds.ServicePocket{}
 				json.Unmarshal(dest.Credentials, &serv)
 				t.Service["pocket"] = &serv
@@ -404,6 +411,7 @@ func (t target) HandleSubscriptions(w http.ResponseWriter, r *http.Request) {
 
 		if d, ok := t.Destination["myk"]; ok {
 			if dest, err = feeds.LoadDestination(t.db, d); err == nil {
+				// TODO(marius): error on empty dest
 				serv := feeds.ServiceMyKindle{}
 				json.Unmarshal(dest.Credentials, &serv)
 				t.Service["myk"] = &serv
@@ -483,23 +491,23 @@ func main() {
 
 	keys := [][]byte{getSessionKey()}
 
-	ss := sessions.NewCookieStore(keys...)
-	ss.Config.Domain = "localhost"
-	r := genRoutes(c, ss)
+	sessionStore = sessions.NewCookieStore(keys...)
+
+	r := genRoutes(c)
 
 	ticker := time.NewTicker(30 * time.Second)
 	quit := make(chan struct{})
-	go func(s *sessions.CookieStore) {
+	go func() {
 		for {
 			select {
 			case <-ticker.C:
-				r = genRoutes(c, s)
+				r = genRoutes(c)
 			case <-quit:
 				ticker.Stop()
 				return
 			}
 		}
-	}(ss)
+	}()
 
 	log.Fatal(http.ListenAndServe(listen, r))
 }
@@ -676,8 +684,6 @@ func fmtDuration(d time.Duration) template.HTML {
 	}
 	return template.HTML(fmt.Sprintf("%.1f times per %s", times, unit))
 }
-
-var sessionName = "_s"
 
 func initSession(ss sessions.Store, r *http.Request) *sessions.Session {
 	gob.Register(feeds.PocketDestination{})
