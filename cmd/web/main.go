@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"html/template"
 	"io"
+	"io/fs"
 	"log"
 	"math/rand"
 	"net/http"
@@ -50,13 +51,31 @@ func (rr renderer) Redirect(w http.ResponseWriter, r *http.Request, s *sessions.
 	http.Redirect(w, r, url, http.StatusPermanentRedirect)
 }
 
-func (rr renderer) Write(w http.ResponseWriter, r *http.Request, s *sessions.Session, t interface{}) {
-	paths := []string{
-		path.Join("web/templates/", rr.name),
-		"web/templates/partials/services.html",
-		"web/templates/partials/new-feed.html",
-		"web/templates/partials/subscriptions.html",
+func getPartialsForTemplate(name string) []string {
+	fileName := strings.Replace(path.Base(name), path.Ext(name), "", 1)
+	basePath, _ := path.Split(name)
+	partialsDir := path.Join(basePath, "partials")
+	partials := os.DirFS(partialsDir)
+
+	paths, _ := fs.Glob(partials, "*.html")
+	for i, p := range paths {
+		paths[i] = path.Join(partialsDir, p)
 	}
+
+	templatePartialsDir := path.Join(partialsDir, fileName)
+	templatePartials := os.DirFS(templatePartialsDir)
+	templatePaths, _ := fs.Glob(templatePartials, "*.html")
+	for _, p := range templatePaths {
+		paths = append(paths, path.Join(templatePartialsDir, p))
+	}
+
+	return paths
+}
+
+func (rr renderer) Write(w http.ResponseWriter, r *http.Request, s *sessions.Session, t interface{}) {
+	p := path.Join("web/templates/", rr.name)
+	paths := append([]string{p}, getPartialsForTemplate(p)...)
+
 	tpl, err := template.New(rr.name).Funcs(tplFuncs(r)).ParseFiles(paths...)
 	if err != nil {
 		errorTpl.Execute(w, err)
