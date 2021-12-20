@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"net/url"
 	"os"
@@ -209,11 +208,9 @@ func LoadItem(it *Item, c *sql.DB, basePath string) (bool, error) {
 			}
 		}
 
-		avgSize := feedItemsAverageSize(feedPath)
-		if len(data)*5 < avgSize {
-			return false, errors.New("file size is smaller than 20% of average of existing ones")
+		if avgSize := feedItemsAverageSize(feedPath); len(data)*5 < avgSize {
+			return false, FileSizeError
 		}
-		log.Printf("File size is in range (20%) of %db: %db", avgSize, len(data))
 
 		if err = ioutil.WriteFile(articlePath, data, 0644); err != nil {
 			return false, err

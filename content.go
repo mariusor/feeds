@@ -64,6 +64,9 @@ func readFile(name string) ([]byte, error) {
 		}
 	}
 }
+
+var FileSizeError = fmt.Errorf("file size is smaller than 20% of average of existing ones")
+
 func GenerateContent(typ, basePath string, item *Item, overwrite bool) error {
 	if !validEbookType(typ) {
 		return fmt.Errorf("invalid ebook type %s, valid ones are %v", typ, validEbookTypes)
@@ -113,6 +116,9 @@ func GenerateContent(typ, basePath string, item *Item, overwrite bool) error {
 		ebookFn = func(content []byte, title string, author string, outPath string) error {
 			if err = ToReadableHtml(content, outPath); err != nil {
 				return err
+			}
+			if avgSize := feedItemsAverageSize(outPath); len(content)*5 < avgSize {
+				return FileSizeError
 			}
 			item.Content["html"] = Content{Path: outPath, Type: "html"}
 			return nil

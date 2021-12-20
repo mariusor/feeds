@@ -2,8 +2,10 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"log"
+	"net/http"
 	"os"
 	"path"
 	"sync"
@@ -67,6 +69,13 @@ func main() {
 	}
 	defer s.Close()
 
+	revertItem := "UPDATE items SET status = ? WHERE id = ?"
+	r, err := c.Prepare(revertItem)
+	if err != nil {
+		log.Fatalf("Error: %s", err)
+	}
+	defer r.Close()
+
 	m := sync.Mutex{}
 	g, _ := errgroup.WithContext(context.Background())
 	for i := 0; i < len(all); i += chunkSize {
@@ -76,7 +85,12 @@ func main() {
 				defer m.Unlock()
 
 				m.Lock()
-				err := generateContent(item, basePath, true)
+				if err := generateContent(item, basePath, true); err != nil {
+					log.Printf("Marking item %s for redownload", item.URL)
+					r.Exec(http.StatusConflict, item.ID)
+					return nil
+				}
+
 				for typ, cont := range item.Content {
 					if typ == "raw" {
 						continue
@@ -104,6 +118,9 @@ func fileExists(file string) bool {
 func generateContent(item *feeds.Item, basePath string, overwrite bool) error {
 	if err := feeds.GenerateContent("html", basePath, item, overwrite); err != nil {
 		log.Printf("Unable to generate path: %s", err.Error())
+		if errors.Is(err, feeds.FileSizeError) {
+			return err
+		}
 	}
 	for _, typ := range validEbookTypes {
 		if c, ok := item.Content[typ]; ok {
