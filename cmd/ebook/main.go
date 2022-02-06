@@ -5,7 +5,6 @@ import (
 	"errors"
 	"flag"
 	"log"
-	"net/http"
 	"os"
 	"path"
 	"sync"
@@ -69,13 +68,6 @@ func main() {
 	}
 	defer s.Close()
 
-	revertItem := "UPDATE items SET status = ? WHERE id = ?"
-	r, err := c.Prepare(revertItem)
-	if err != nil {
-		log.Fatalf("Error: %s", err)
-	}
-	defer r.Close()
-
 	m := sync.Mutex{}
 	g, _ := errgroup.WithContext(context.Background())
 	for i := 0; i < len(all); i += chunkSize {
@@ -86,8 +78,7 @@ func main() {
 
 				m.Lock()
 				if err := generateContent(item, basePath, true); err != nil {
-					log.Printf("Marking item %s for redownload", item.URL)
-					r.Exec(http.StatusConflict, item.ID)
+					feeds.MarkItemsAsFailed(c, *item)
 					return nil
 				}
 

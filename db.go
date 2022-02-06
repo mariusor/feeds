@@ -209,6 +209,7 @@ func LoadItem(it *Item, c *sql.DB, basePath string) (bool, error) {
 		}
 
 		if avgSize := feedItemsAverageSize(feedPath); len(data)*5 < avgSize {
+			MarkItemsAsFailed(c, *it)
 			return false, FileSizeError
 		}
 
@@ -297,6 +298,48 @@ func GetFeeds(c *sql.DB) ([]Feed, error) {
 		all = append(all, f)
 	}
 	return all, nil
+}
+
+/*
+	revertItem := "UPDATE items SET status = ? WHERE id = ?"
+	r, err := c.Prepare(revertItem)
+	if err != nil {
+		log.Fatalf("Error: %s", err)
+	}
+	defer r.Close()
+
+	r.Exec(http.StatusConflict, item.ID)
+*/
+
+func MarkItemsAsFailed(c *sql.DB, items ...Item) error {
+	args := make([]string, len(items))
+	vals := make([]interface{}, len(items))
+	for i, it := range items {
+		args[i] = "?"
+		vals[i] = interface{}(it.ID)
+	}
+	upd := fmt.Sprintf(
+		`update items set last_loaded = null, last_status = %d where id in (%s)`,
+		http.StatusConflict,
+		strings.Join(args, ", "),
+	)
+	s, err := c.Query(upd, vals...)
+	if err != nil {
+		return err
+	}
+	defer s.Close()
+
+	del := fmt.Sprintf(
+		`delete from contents where item_id in (%s)`,
+		strings.Join(args, ", "),
+	)
+	s, err = c.Query(del, vals...)
+	if err != nil {
+		return err
+	}
+	defer s.Close()
+
+	return nil
 }
 
 func GetNonFetchedItems(c *sql.DB) ([]Item, error) {
