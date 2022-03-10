@@ -15,9 +15,12 @@ func Readability(content []byte) (*readability.Document, error) {
 	}
 	doc.RemoveUnlikelyCandidates = true
 	doc.EnsureTitleInArticle = true
-	doc.WhitelistTags = append(doc.WhitelistTags, "h1", "h2", "h3", "h4", "h5", "h6", "img", "hr")
+	doc.WhitelistTags = append(doc.WhitelistTags, "h1", "h2", "h3", "h4", "h5", "h6", "img", "hr", "br")
 	doc.WhitelistTags = append(doc.WhitelistTags, "table", "tr", "td", "th", "tbody", "tcol")
+	doc.WhitelistTags = append(doc.WhitelistTags, "blockquote", "article", "section")
+	doc.WhitelistTags = append(doc.WhitelistTags, "ul", "ol", "li", "dl", "dt", "dd")
 	doc.WhitelistAttrs["img"] = []string{"src", "title", "alt"}
+	doc.MinTextLength = 10
 	//doc.WhitelistAttrs["p"] = []string{"style"}
 	return doc, nil
 }
