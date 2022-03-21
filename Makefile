@@ -27,6 +27,7 @@ ifneq ($(ENV), dev)
 	LDFLAGS += -s -w -extldflags "-static"
 endif
 
+
 ifeq ($(shell git describe --always > /dev/null 2>&1 ; echo $$?), 0)
 export VERSION = $(shell git describe --always --dirty="-git")
 endif
@@ -37,27 +38,27 @@ endif
 BUILD := $(GO) build $(BUILDFLAGS)
 TEST := $(GO) test $(BUILDFLAGS)
 
-.PHONY: all content dispatch feeds ebook web clean mod_tidy
+.PHONY: all content dispatch feeds ebook web clean download
 
 all: content dispatch feeds ebook web
 
-content: mod_tidy bin/content
+content: download bin/content
 bin/content: cmd/content/main.go $(APPSOURCES)
 	$(BUILD) -tags $(ENV) -o $@ ./cmd/content/main.go
 
-ebook: mod_tidy bin/ebook
+ebook: download bin/ebook
 bin/ebook: cmd/ebook/main.go $(APPSOURCES)
 	$(BUILD) -tags $(ENV) -o $@ ./cmd/ebook/main.go
 
-feeds: mod_tidy bin/feeds
+feeds: download bin/feeds
 bin/feeds: cmd/feeds/main.go $(APPSOURCES)
 	$(BUILD) -tags $(ENV) -o $@ ./cmd/feeds/main.go
 
-dispatch: mod_tidy bin/dispatch
+dispatch: download bin/dispatch
 bin/dispatch: cmd/dispatch/main.go $(APPSOURCES)
 	$(BUILD) -tags $(ENV) -o $@ ./cmd/dispatch/main.go
 
-web: mod_tidy bin/web
+web: download bin/web
 bin/web: cmd/web/main.go $(APPSOURCES)
 	$(BUILD) -tags $(ENV) -o $@ ./cmd/web/main.go
 
@@ -70,8 +71,8 @@ units: $(patsubst %.service.in, %.service, $(wildcard systemd/*.service.in))
 systemd/%.service: systemd/%.service.in
 	$(M4) $(M4_FLAGS) -DBIN_NAME=`basename $< | cut -d'.' -f1` -DDATA_PATH=$(DATA_PATH) $< >$@
 
-mod_tidy:
-	$(GO) mod tidy
+download:
+	$(GO) mod download all
 
 install: units
 	test -d $(DESTDIR)$(INSTALL_PREFIX)/$(UNITDIR)/ || mkdir -p $(DESTDIR)$(INSTALL_PREFIX)/$(UNITDIR)/
