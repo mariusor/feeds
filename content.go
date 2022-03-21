@@ -65,7 +65,7 @@ func readFile(name string) ([]byte, error) {
 	}
 }
 
-var FileSizeError = fmt.Errorf("file size is smaller than 20% of average of existing ones")
+var FileSizeError = fmt.Errorf("file size is smaller than 20%% of average of existing ones")
 
 func GenerateContent(typ, basePath string, item *Item, overwrite bool) error {
 	if !validEbookType(typ) {
