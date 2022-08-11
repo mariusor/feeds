@@ -482,7 +482,7 @@ func GetContentsForEbook(c *sql.DB, types ...string) ([]Item, error) {
 
 	}
 
-	sel := `SELECT items.id, items.feed_index, feeds.title, items.title, items.author, raw.id, raw.type, raw.path, %s FROM items
+	sel := `SELECT items.id, items.feed_index, feeds.title, items.title, items.author, items.published_date, items.last_loaded, raw.id, raw.type, raw.path, %s FROM items
 	INNER JOIN feeds ON feeds.id = items.feed_id
 	INNER JOIN contents AS raw ON items.id = raw.item_id AND raw.type = 'raw'
 %s WHERE %s`
@@ -500,11 +500,12 @@ func GetContentsForEbook(c *sql.DB, types ...string) ([]Item, error) {
 			id                       int
 			feedTitle, title, author string
 			feedIndex, rawId         sql.NullInt32
+			updated, published       sql.NullTime
 			it                       Item
 			ok                       bool
 			rawType, rawPath         sql.NullString
 		)
-		params := []interface{}{&id, &feedIndex, &feedTitle, &title, &author, &rawId, &rawType, &rawPath}
+		params := []interface{}{&id, &feedIndex, &feedTitle, &title, &author, &published, &updated, &rawId, &rawType, &rawPath}
 		paths := make(map[string]sql.NullString)
 		for _, typ := range types {
 			params = append(params, interface{}(paths[typ]))
@@ -516,6 +517,12 @@ func GetContentsForEbook(c *sql.DB, types ...string) ([]Item, error) {
 				Title:  title,
 				Author: author,
 				Feed:   Feed{Title: feedTitle},
+			}
+			if published.Valid {
+				it.Published = published.Time
+			}
+			if updated.Valid {
+				it.Updated = updated.Time
 			}
 			if feedIndex.Valid {
 				it.FeedIndex = int(feedIndex.Int32)
@@ -567,7 +574,7 @@ func GetContentsForEbook(c *sql.DB, types ...string) ([]Item, error) {
 }
 
 func GetItemsByFeedAndType(c *sql.DB, f Feed, ext string) ([]Item, error) {
-	sel := `SELECT items.id, feeds.title, items.title, items.author, items.feed_index FROM items 
+	sel := `SELECT items.id, feeds.title, items.title, items.author, items.published_date, items.last_loaded, items.feed_index FROM items 
 INNER JOIN feeds ON feeds.id = items.feed_id 
 WHERE items.feed_id = ? ORDER BY items.feed_index ASC;`
 
@@ -583,14 +590,21 @@ WHERE items.feed_id = ? ORDER BY items.feed_index ASC;`
 		var (
 			id                       int
 			feedIndex                sql.NullInt32
+			updated, published       sql.NullTime
 			feedTitle, title, author string
 		)
-		s.Scan(&id, &feedTitle, &title, &author, &feedIndex)
+		s.Scan(&id, &feedTitle, &title, &author, &published, &updated, &feedIndex)
 		it := Item{
 			ID:     id,
 			Title:  title,
 			Author: author,
 			Feed:   Feed{Title: feedTitle},
+		}
+		if published.Valid {
+			it.Published = published.Time
+		}
+		if updated.Valid {
+			it.Updated = updated.Time
 		}
 		if feedIndex.Valid {
 			it.FeedIndex = int(feedIndex.Int32)

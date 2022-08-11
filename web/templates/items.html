@@ -18,7 +18,10 @@
     {{ else }}
     {{- $item.Title -}}
     {{ end }}
-    {{ if not $item.Updated.IsZero }} Last updated {{ $item.Updated -}} {{ end }}<br/>
+    {{/*
+    {{- if not $item.Published.IsZero }} published {{ fmtTime $item.Published -}} {{ end -}}
+    */}}
+    {{- if not $item.Updated.IsZero }} updated {{ fmtTime $item.Updated -}} {{ end -}}<br/>
     {{ if hasEPub $item }} <a download href="/{{ $parent }}/{{ $item.PathSlug }}.epub">epub</a>{{ end }}
     {{ if hasMobi $item }} <a download href="/{{ $parent }}/{{ $item.PathSlug }}.mobi">mobi</a>{{ end }}
     {{ if hasAZW3 $item }} <a download href="/{{ $parent }}/{{ $item.PathSlug }}.azw3">azw3</a>{{ end }}
