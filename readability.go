@@ -1,7 +1,6 @@
 package feeds
 
 import (
-	"io/ioutil"
 	"os"
 	"path"
 
@@ -25,7 +24,7 @@ func Readability(content []byte) (*readability.Document, error) {
 	return doc, nil
 }
 
-func ToReadableHtml(content []byte, outPath string) error {
+func ToReadableHtml(content []byte, title, author, outPath string) error {
 	doc, err := Readability(content)
 	if err != nil {
 		return err
@@ -37,7 +36,7 @@ func ToReadableHtml(content []byte, outPath string) error {
 		}
 	}
 	cont := doc.Content()
-	if err = ioutil.WriteFile(outPath, []byte(cont), 0644); err != nil {
+	if err = os.WriteFile(outPath, []byte(cont), 0644); err != nil {
 		return err
 	}
 	return nil
