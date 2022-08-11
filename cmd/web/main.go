@@ -113,12 +113,6 @@ var notFoundHandler = func(e error) func(w http.ResponseWriter, r *http.Request)
 	}
 }
 
-var validFileTypes = [...]string{
-	"html",
-	"mobi",
-	"epub",
-}
-
 func genRoutes(db *sql.DB) *http.ServeMux {
 	r := http.NewServeMux()
 	ss := sessionStore
@@ -133,7 +127,7 @@ func genRoutes(db *sql.DB) *http.ServeMux {
 	r.HandleFunc("/", feedsListing.Handler)
 	r.HandleFunc("/add", AddHandler(db))
 	for _, f := range allFeeds {
-		items, err := feeds.GetItemsByFeedAndType(db, f, "html")
+		items, err := feeds.GetItemsByFeedAndType(db, f, feeds.OutputTypeHTML)
 		if err != nil {
 			panic(err)
 		}
@@ -145,7 +139,7 @@ func genRoutes(db *sql.DB) *http.ServeMux {
 		r.HandleFunc(feedPath+"/", a.Handler)
 		for _, it := range items {
 			article := article{Feed: f, Item: it}
-			for _, typ := range validFileTypes {
+			for _, typ := range feeds.ValidEbookTypes {
 				handlerFn := notFoundHandler(fmt.Errorf("%q not found", it.Title))
 				if cont, ok := it.Content[typ]; ok && fileExists(cont.Path) {
 					handlerFn = article.Handler
