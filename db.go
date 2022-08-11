@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -249,6 +248,25 @@ func feedItemsAverageSize(path string) int {
 	return int(sum / cnt)
 }
 
+type errors []error
+
+func (e errors) Error() string {
+	s := strings.Builder{}
+	l := len(e) - 1
+	isLast := func(i int) bool {
+		return i == l
+	}
+	s.WriteString("[")
+	for i, err := range e {
+		s.WriteString(err.Error())
+		if !isLast(i) {
+			s.WriteString(", ")
+		}
+	}
+	s.WriteString("]")
+	return s.String()
+}
+
 func SaveFeeds(c *sql.DB, feeds ...Feed) error {
 	ins := `INSERT INTO feeds (title, frequency, author, url, flags) VALUES(?, ?, ?, ?, ?) ON CONFLICT(url) DO NOTHING;`
 	s, err := c.Prepare(ins)
@@ -257,10 +275,14 @@ func SaveFeeds(c *sql.DB, feeds ...Feed) error {
 	}
 	defer s.Close()
 
+	multi := make(errors, 0)
 	for _, f := range feeds {
 		if _, err := s.Exec(f.Title, f.Frequency.Seconds(), f.Author, f.URL.String(), f.Flags); err != nil {
-			return err
+			multi = append(multi, fmt.Errorf("unable to save feed %s: %w", f.Title, err))
 		}
+	}
+	if len(multi) > 0 {
+		return multi
 	}
 	return nil
 }
@@ -668,7 +690,7 @@ func LoadDestination(c *sql.DB, d DestinationTarget) (*Destination, error) {
 	case MyKindleDestination:
 		return loadMyKindleDestination(c, dd)
 	}
-	return nil, errors.New("invalid destination")
+	return nil, fmt.Errorf("invalid destination")
 }
 
 func insertDestination(c *sql.DB, d Destination) (*Destination, error) {
@@ -730,6 +752,7 @@ func SaveSubscriptions(c *sql.DB, d Destination, feeds ...Feed) error {
 	}
 	defer s.Close()
 
+	multi := make(errors, 0)
 	d.Created = time.Now().UTC()
 	for _, f := range feeds {
 		if f.ID == 0 {
@@ -737,8 +760,11 @@ func SaveSubscriptions(c *sql.DB, d Destination, feeds ...Feed) error {
 		}
 
 		if _, err := s.Exec(f.ID, d.ID, d.Created.Format(time.RFC3339)); err != nil {
-			return err
+			multi = append(multi, fmt.Errorf("unable to save subscription %s -> %s: %w", f.Title, d.Type, err))
 		}
+	}
+	if len(multi) > 0 {
+		return multi
 	}
 	return nil
 }
@@ -848,13 +874,17 @@ func InsertContent(c *sql.DB, item Item) error {
 	}
 	defer s.Close()
 
+	multi := make(errors, 0)
 	for typ, cont := range item.Content {
 		if typ == OutputTypeRAW {
 			continue
 		}
 		if _, err = s.Exec(item.ID, cont.Path, typ); err != nil {
-			return err
+			multi = append(multi, fmt.Errorf("unable to save content path for type %s: %w", typ, err))
 		}
+	}
+	if len(multi) > 0 {
+		return multi
 	}
 	return nil
 }
