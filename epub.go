@@ -4,7 +4,7 @@ import (
 	"github.com/bmaupin/go-epub"
 )
 
-func ToEPub(content []byte, title string, author string, outPath string) error {
+func ToEPub(content []byte, title, author, outPath string) error {
 	e := epub.NewEpub(title)
 
 	e.SetAuthor(author)

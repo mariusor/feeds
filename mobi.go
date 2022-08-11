@@ -4,11 +4,7 @@ import (
 	"github.com/766b/mobi"
 )
 
-const HtmlDir = "articles"
-const MobiDir = "output/mobi"
-const OutputDir = "output"
-
-func ToMobi(content []byte, title string, author string, outPath string) error {
+func ToMobi(content []byte, title, author, outPath string) error {
 	m, err := mobi.NewWriter(outPath)
 	if err != nil {
 		return err

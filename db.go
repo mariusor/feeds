@@ -410,7 +410,7 @@ INNER JOIN subscriptions s ON f.id = s.feed_id
 INNER JOIN destinations d ON d.id = s.destination_id
 INNER JOIN contents c ON c.item_id = i.id AND (%s)
 LEFT JOIN dispatched t ON t.item_id = i.id AND t.destination_id = d.id  
-WHERE date(i.last_loaded) > date(s.created, '-%f hour') AND (t.id IS NULL OR (t.id IS NOT NULL AND t.last_status = 0))
+WHERE date(i.last_loaded) > date(c.created, '-%f hour') AND (t.id IS NULL OR (t.id IS NOT NULL AND t.last_status = 0))
 GROUP BY i.id, d.type, d.id ORDER BY i.id;`, strings.Join(wheres, " OR "), subscriptionBackPeriod.Hours())
 
 	s, err := c.Query(sel, params...)
@@ -723,7 +723,7 @@ type Subscription struct {
 }
 
 func SaveSubscriptions(c *sql.DB, d Destination, feeds ...Feed) error {
-	ins := `INSERT INTO subscriptions (feed_id, destination_id, created) VALUES (?, ?, ?) ON CONFLICT DO NOTHING;`
+	ins := `INSERT INTO subscriptions (feed_id, destination_id) VALUES (?, ?, ?) ON CONFLICT DO NOTHING;`
 	s, err := c.Prepare(ins)
 	if err != nil {
 		return err
@@ -838,4 +838,23 @@ func SaveTarget(c *sql.DB, tt DispatchItem) error {
 	t.LastMessage = tt.LastMessage
 	t.LastStatus = tt.LastStatus
 	return updateTarget(c, *t)
+}
+
+func InsertContent(c *sql.DB, item Item) error {
+	insEbookContent := "INSERT INTO contents (item_id, path, type) VALUES (?, ?, ?) ON CONFLICT DO NOTHING;"
+	s, err := c.Prepare(insEbookContent)
+	if err != nil {
+		return err
+	}
+	defer s.Close()
+
+	for typ, cont := range item.Content {
+		if typ == OutputTypeRAW {
+			continue
+		}
+		if _, err = s.Exec(item.ID, cont.Path, typ); err != nil {
+			return err
+		}
+	}
+	return nil
 }

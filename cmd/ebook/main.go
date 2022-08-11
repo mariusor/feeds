@@ -15,21 +15,6 @@ import (
 
 const chunkSize = 20
 
-var validEbookTypes = [...]string{
-	"html",
-	"epub",
-	"mobi",
-}
-
-func validEbookType(typ string) bool {
-	for _, t := range validEbookTypes {
-		if t == typ {
-			return true
-		}
-	}
-	return false
-}
-
 func main() {
 	var (
 		basePath string
@@ -53,20 +38,13 @@ func main() {
 	}
 	defer c.Close()
 
-	all, err := feeds.GetContentsForEbook(c, validEbookTypes[:]...)
+	all, err := feeds.GetContentsForEbook(c, feeds.ValidEbookTypes[:]...)
 	if err != nil {
 		log.Fatalf("Error: %s", err)
 	}
 	if len(all) == 0 {
 		log.Printf("Nothing to do, exiting.")
 	}
-
-	insEbookContent := "INSERT INTO contents (item_id, path, type) VALUES (?, ?, ?) ON CONFLICT DO NOTHING;"
-	s, err := c.Prepare(insEbookContent)
-	if err != nil {
-		log.Fatalf("Error: %s", err)
-	}
-	defer s.Close()
 
 	m := sync.Mutex{}
 	g, _ := errgroup.WithContext(context.Background())
@@ -82,16 +60,11 @@ func main() {
 					return nil
 				}
 
-				for typ, cont := range item.Content {
-					if typ == "raw" {
-						continue
-					}
-					if _, err = s.Exec(item.ID, cont.Path, typ); err != nil {
-						log.Printf("Unable to update paths in db: %s", err.Error())
-						return nil
-					}
-					log.Printf("Updated content item type %s [%d]: %s", typ, item.ID, item.Title)
+				if err = feeds.InsertContent(c, *item); err != nil {
+					log.Printf("Unable to update paths in db: %s", err.Error())
+					return nil
 				}
+				log.Printf("Updated content items [%d] %s: %v", item.ID, item.Title, item.Content)
 				return nil
 			})
 		}
@@ -107,13 +80,13 @@ func fileExists(file string) bool {
 }
 
 func generateContent(item *feeds.Item, basePath string, overwrite bool) error {
-	if err := feeds.GenerateContent("html", basePath, item, overwrite); err != nil {
+	if err := feeds.GenerateContent(feeds.OutputTypeHTML, basePath, item, overwrite); err != nil {
 		log.Printf("Unable to generate path: %s", err.Error())
 		if errors.Is(err, feeds.FileSizeError) {
 			return err
 		}
 	}
-	for _, typ := range validEbookTypes {
+	for _, typ := range feeds.ValidEbookTypes {
 		if c, ok := item.Content[typ]; ok {
 			if fileExists(c.Path) {
 				continue

@@ -9,14 +9,55 @@ import (
 	"strings"
 )
 
-var validEbookTypes = [...]string{
-	"html",
-	"epub",
-	"mobi",
+const (
+	HtmlDir   = "articles"
+	OutputDir = "output"
+
+	OutputTypeRAW  = "raw"
+	OutputTypeHTML = "html"
+	OutputTypeEPUB = "epub"
+	OutputTypeMOBI = "mobi"
+	OutputTypeAZW3 = "azw3"
+)
+
+var ValidEbookTypes = [...]string{
+	OutputTypeHTML,
+	OutputTypeEPUB,
+	OutputTypeMOBI,
+	OutputTypeAZW3,
+}
+
+type convertFn func(content []byte, title string, author string, outPath string) error
+
+type itemTypeFn func(*Item, string) convertFn
+
+type typeDependency map[string]string
+
+type functionMapper map[string]convertFn
+
+var typesDependencies = typeDependency{
+	OutputTypeMOBI: OutputTypeHTML,
+	OutputTypeEPUB: OutputTypeHTML,
+	OutputTypeAZW3: OutputTypeHTML,
+	OutputTypeHTML: OutputTypeRAW,
+}
+
+var typesFunctions = functionMapper{
+	OutputTypeMOBI: ToMobi,
+	OutputTypeEPUB: ToEPub,
+	OutputTypeAZW3: ToAZW3,
+	OutputTypeHTML: ToReadableHtml,
+}
+
+var mappings = map[string]itemTypeFn{
+	OutputTypeMOBI: ebook,
+	OutputTypeEPUB: ebook,
+	OutputTypeAZW3: ebook,
+	OutputTypeHTML: html,
 }
 
 func validEbookType(typ string) bool {
-	for _, t := range validEbookTypes {
+	for _, t := range ValidEbookTypes {
 		if t == typ {
 			return true
 		}
@@ -67,87 +108,77 @@ func readFile(name string) ([]byte, error) {
 
 var FileSizeError = fmt.Errorf("file size is smaller than 20%% of average of existing ones")
 
+func ebook(item *Item, typ string) convertFn {
+	fn := typesFunctions[typ]
+	return func(content []byte, title string, author string, outPath string) error {
+		if err := fn(content, title, author, outPath); err != nil {
+			return err
+		}
+		item.Content[typ] = Content{Path: outPath, Type: typ}
+		return nil
+	}
+}
+
+func html(item *Item, typ string) convertFn {
+	fn := typesFunctions[typ]
+	return func(content []byte, title string, author string, outPath string) error {
+		if err := fn(content, title, author, outPath); err != nil {
+			return err
+		}
+		if avgSize := feedItemsAverageSize(outPath); len(content)*5 < avgSize {
+			return FileSizeError
+		}
+		item.Content[typ] = Content{Path: outPath, Type: typ}
+		return nil
+	}
+}
+
+func getItemContentForType(it Item, typ string) ([]byte, error) {
+	c, ok := it.Content[typ]
+	if !ok {
+		return nil, fmt.Errorf("invalid content of type %s for item %v", typ, it)
+	}
+	buf, err := readFile(c.Path)
+	if err != nil {
+		return nil, err
+	}
+	return buf, nil
+}
+
 func GenerateContent(typ, basePath string, item *Item, overwrite bool) error {
 	if !validEbookType(typ) {
-		return fmt.Errorf("invalid ebook type %s, valid ones are %v", typ, validEbookTypes)
+		return fmt.Errorf("invalid ebook type %s, valid ones are %v", typ, ValidEbookTypes)
 	}
 	if c, ok := item.Content[typ]; ok && c.Path != "" {
 		return nil
 	}
-	var (
-		ebookFn func(content []byte, title string, author string, outPath string) error
-		contFn  func() ([]byte, error)
-		err     error
-	)
-	needsHtmlFn := func(typ string) func() ([]byte, error) {
-		return func() ([]byte, error) {
-			c, ok := item.Content[typ]
-			if !ok {
-				return nil, fmt.Errorf("invalid content of type %s for item %v", typ, item)
-			}
-			buf, err := readFile(c.Path)
-			if err != nil {
-				return nil, err
-			}
-			return buf, nil
-		}
-	}
-	switch typ {
-	case "mobi":
-		contFn = needsHtmlFn("html")
-		ebookFn = func(content []byte, title string, author string, outPath string) error {
-			if err := ToMobi(content, title, author, outPath); err != nil {
-				return err
-			}
-			item.Content["mobi"] = Content{Path: outPath, Type: "mobi"}
-			return nil
-		}
-	case "epub":
-		contFn = needsHtmlFn("html")
-		ebookFn = func(content []byte, title string, author string, outPath string) error {
-			if err := ToEPub(content, title, author, outPath); err != nil {
-				return err
-			}
-			item.Content["epub"] = Content{Path: outPath, Type: "epub"}
-			return nil
-		}
-	case "html":
-		contFn = needsHtmlFn("raw")
-		ebookFn = func(content []byte, title string, author string, outPath string) error {
-			if err = ToReadableHtml(content, outPath); err != nil {
-				return err
-			}
-			if avgSize := feedItemsAverageSize(outPath); len(content)*5 < avgSize {
-				return FileSizeError
-			}
-			item.Content["html"] = Content{Path: outPath, Type: "html"}
-			return nil
-		}
-	}
-	ebookPath := path.Join(basePath, OutputDir, strings.TrimSpace(item.Feed.Title), typ, item.Path(typ))
-	if !path.IsAbs(ebookPath) {
-		if ebookPath, err = filepath.Abs(ebookPath); err != nil {
+	var err error
+
+	outPath := path.Join(basePath, OutputDir, strings.TrimSpace(item.Feed.Title), typ, item.Path(typ))
+	if !path.IsAbs(outPath) {
+		if outPath, err = filepath.Abs(outPath); err != nil {
 			return err
 		}
 	}
-	ebookDirPath := path.Dir(ebookPath)
-	if _, err := os.Stat(ebookDirPath); err != nil && os.IsNotExist(err) {
-		if err = os.MkdirAll(ebookDirPath, 0755); err != nil {
+	outDirPath := path.Dir(outPath)
+	if _, err := os.Stat(outDirPath); err != nil && os.IsNotExist(err) {
+		if err = os.MkdirAll(outDirPath, 0755); err != nil {
 			return err
 		}
 	}
 
-	if _, err := os.Stat(ebookPath); !overwrite && !(err != nil && os.IsNotExist(err)) {
+	if _, err := os.Stat(outPath); !overwrite && !(err != nil && os.IsNotExist(err)) {
 		return nil
 	}
-	buf, err := contFn()
+	buf, err := getItemContentForType(*item, typesDependencies[typ])
 	if err != nil {
 		return err
 	}
-	if err = ebookFn(buf, strings.TrimSpace(item.Title), strings.TrimSpace(item.Author), ebookPath); err != nil {
+	fn := mappings[typ](item, typ)
+	if err = fn(buf, strings.TrimSpace(item.Title), strings.TrimSpace(item.Author), outPath); err != nil {
 		return err
 	}
-	if _, err := os.Stat(ebookPath); err != nil {
+	if _, err := os.Stat(outPath); err != nil {
 		return err
 	}
 
