@@ -15,7 +15,7 @@
 {{ range $key, $feed:=.Feeds }}
 <li>
     <a href="/{{ $feed.Title | sluggify }}/">{{- $feed.Title -}}</a>
-    by {{ $feed.Author }}<br/> Updates {{ fmtDuration $feed.Frequency -}}
+    by {{ $feed.Author }}<br/> Updates {{ fmtDuration $feed.Frequency -}}, last updated {{ fmtTime $feed.Updated }}
 </li>
 {{ end }}
 </ol>

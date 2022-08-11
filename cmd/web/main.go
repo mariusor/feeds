@@ -12,6 +12,7 @@ import (
 	"io"
 	"io/fs"
 	"log"
+	"math"
 	"math/rand"
 	"net/http"
 	"net/url"
@@ -544,6 +545,7 @@ func (i index) Handler(w http.ResponseWriter, r *http.Request) {
 var tplFuncs = func(r *http.Request) template.FuncMap {
 	return template.FuncMap{
 		"fmtDuration": fmtDuration,
+		"fmtTime":     fmtTime,
 		"sluggify": func(s string) template.HTMLAttr {
 			return template.HTMLAttr(feeds.Slug(s))
 		},
@@ -551,6 +553,7 @@ var tplFuncs = func(r *http.Request) template.FuncMap {
 		"hasHtml":             has("html"),
 		"hasMobi":             has("mobi"),
 		"hasEPub":             has("epub"),
+		"hasAZW3":             has("azw3"),
 		"serviceEnabled":      serviceEnabled,
 		"subscriptionEnabled": subscriptionEnabled,
 	}
@@ -640,6 +643,87 @@ func (t targets) Handler(w http.ResponseWriter, r *http.Request) {
 		t.Destinations = append(t.Destinations, kindle)
 	}
 	rr.Write(w, r, s, t)
+}
+
+func pluralize(d float64, unit string) string {
+	l := len(unit)
+	cons := func(c byte) bool {
+		cons := []byte{'b', 'c', 'd', 'f', 'g', 'h', 'j', 'k', 'l', 'm', 'n', 'p', 'q', 'r', 's', 't', 'v', 'w', 'y', 'z'}
+		for _, cc := range cons {
+			if c == cc {
+				return true
+			}
+		}
+		return false
+	}
+	if math.Round(d) != 1 {
+		if cons(unit[l-2]) && unit[l-1] == 'y' {
+			unit = unit[:l-1] + "ie"
+		}
+		return unit + "s"
+	}
+	return unit
+}
+
+func fmtTime(t time.Time) template.HTML {
+	if t.IsZero() {
+		return "never"
+	}
+	td := time.Now().UTC().Sub(t)
+	val := 0.0
+	unit := ""
+	when := "ago"
+
+	hours := math.Abs(td.Hours())
+	minutes := math.Abs(td.Minutes())
+	seconds := math.Abs(td.Seconds())
+
+	if td.Seconds() < 0 {
+		// we're in the future
+		when = "in the future"
+	}
+	if seconds < 30 {
+		return "now"
+	}
+	if hours < 1 {
+		if minutes < 1 {
+			val = math.Mod(seconds, 60)
+			unit = "second"
+		} else {
+			val = math.Mod(minutes, 60)
+			unit = "minute"
+		}
+	} else if hours < 24 {
+		val = hours
+		unit = "hour"
+	} else if hours < 168 {
+		val = hours / 24
+		unit = "day"
+	} else if hours < 672 {
+		val = hours / 168
+		unit = "week"
+	} else if hours < 8760 {
+		val = hours / 730
+		unit = "month"
+	} else if hours < 87600 {
+		val = hours / 8760
+		unit = "year"
+	} else if hours < 876000 {
+		val = hours / 87600
+		unit = "decade"
+	} else {
+		val = hours / 876000
+		unit = "century"
+	}
+	switch unit {
+	case "day":
+		fallthrough
+	case "hour":
+		fallthrough
+	case "minute":
+		return template.HTML(fmt.Sprintf("%.0f %s %s", val, pluralize(val, unit), when))
+	}
+	return template.HTML(fmt.Sprintf("%.1f %s %s", val, pluralize(val, unit), when))
 }
 
 func fmtDuration(d time.Duration) template.HTML {
