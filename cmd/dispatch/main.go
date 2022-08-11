@@ -35,10 +35,6 @@ func main() {
 		// fail if can't load html folder
 		log.Fatalf("Invalid html folder %s", htmlBasePath)
 	}
-	mobiBasePath := path.Dir(path.Join(basePath, feeds.MobiDir))
-	if _, err := os.Stat(mobiBasePath); os.IsNotExist(err) {
-		os.Mkdir(mobiBasePath, 0755)
-	}
 
 	c, err := feeds.DB(basePath)
 	if err != nil {
