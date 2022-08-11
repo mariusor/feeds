@@ -16,6 +16,7 @@ require (
 	github.com/jordan-wright/email v4.0.1-0.20210109023952-943e75fe5223+incompatible
 	github.com/leotaku/mobi v0.0.0-20220810163745-bd45c4ad1cc6
 	github.com/mariusor/go-readability v0.0.0-20210422152301-8c985fff1048
+	github.com/mattn/go-sqlite3 v1.14.9
 	github.com/motemen/go-pocket v0.0.0-20201204003030-43b897100651
 	github.com/onsi/gomega v1.11.0 // indirect
 	github.com/vincent-petithory/dataurl v1.0.0 // indirect

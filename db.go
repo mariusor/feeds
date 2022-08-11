@@ -32,9 +32,9 @@ func DB(basePath string) (*sql.DB, error) {
 	if _, err := os.Stat(dbPath); os.IsNotExist(err) {
 		bootstrap = true
 	}
-	db, err := sql.Open("sqlite", dbPath)
+	db, err := openDb(dbPath)
 	if err != nil {
-		return db, err
+		return nil, err
 	}
 	if bootstrap {
 		if err := createTables(db); err != nil {
