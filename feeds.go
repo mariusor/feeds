@@ -2,7 +2,7 @@ package feeds
 
 import (
 	"database/sql"
-	"io/ioutil"
+	"io"
 	"log"
 	"mime"
 	"net/http"
@@ -62,7 +62,7 @@ func GetFeedInfo(u url.URL) (*rss.Feed, error) {
 	}
 	defer resp.Body.Close()
 
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
 	}
@@ -79,7 +79,7 @@ func CheckFeed(f Feed, c *sql.DB) (bool, error) {
 	}
 	defer resp.Body.Close()
 
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return false, err
 	}
@@ -111,7 +111,7 @@ func CheckFeed(f Feed, c *sql.DB) (bool, error) {
 		if err = s.QueryRow(item.Link).Scan(&it.ID, &it.Published); err != nil {
 			log.Printf("Error: %s", err)
 		}
-		if item.Date.Sub(it.Published) <= 0 {
+		if item.Date.Sub(it.Published) <= 0 || item.Title == "" {
 			continue
 		}
 		it.Feed.ID = f.ID
