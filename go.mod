@@ -16,16 +16,18 @@ require (
 	github.com/jordan-wright/email v4.0.1-0.20210109023952-943e75fe5223+incompatible
 	github.com/leotaku/mobi v0.0.0-20220810163745-bd45c4ad1cc6
 	github.com/mariusor/go-readability v0.0.0-20210422152301-8c985fff1048
-	github.com/mattn/go-sqlite3 v1.14.9
+	github.com/mattn/go-sqlite3 v1.14.14
 	github.com/motemen/go-pocket v0.0.0-20201204003030-43b897100651
 	github.com/onsi/gomega v1.11.0 // indirect
 	github.com/vincent-petithory/dataurl v1.0.0 // indirect
-	golang.org/x/net v0.0.0-20211209124913-491a49abca63 // indirect
-	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
-	golang.org/x/sys v0.0.0-20211210111614-af8b64212486 // indirect
-	golang.org/x/tools v0.1.8 // indirect
+	golang.org/x/sync v0.0.0-20220722155255-886fb9371eb4
+	golang.org/x/sys v0.0.0-20220811171246-fbc7d0a398ab // indirect
+	golang.org/x/tools v0.1.12 // indirect
+	golang.org/x/xerrors v0.0.0-20220609144429-65e65417b02f // indirect
 	gopkg.in/yaml.v2 v2.4.0
-	modernc.org/ccgo/v3 v3.12.89 // indirect
-	modernc.org/libc v1.11.98 // indirect
-	modernc.org/sqlite v1.14.2
+	lukechampine.com/uint128 v1.2.0 // indirect
+	modernc.org/cc/v3 v3.36.1 // indirect
+	modernc.org/opt v0.1.3 // indirect
+	modernc.org/sqlite v1.18.1
+	modernc.org/strutil v1.1.2 // indirect
 )
