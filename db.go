@@ -54,7 +54,9 @@ func createTables(c *sql.DB) error {
 		last_loaded TEXT,
 		last_status INTEGER,
 		flags INTEGER DEFAULT 0
-	);`
+	);
+CREATE UNIQUE INDEX unq_feeds_url ON feeds(url);
+`
 	if _, err := c.Exec(feeds); err != nil {
 		return err
 	}
@@ -71,7 +73,9 @@ func createTables(c *sql.DB) error {
 		last_loaded TEXT,
 		last_status INTEGER,
 		FOREIGN KEY(feed_id) REFERENCES feeds(id)
-	);`
+	);
+CREATE UNIQUE INDEX unq_items_url ON items(url);
+`
 	if _, err := c.Exec(items); err != nil {
 		return err
 	}
