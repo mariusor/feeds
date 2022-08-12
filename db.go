@@ -53,10 +53,9 @@ func createTables(c *sql.DB) error {
 		frequency REAL,
 		last_loaded TEXT,
 		last_status INTEGER,
-		flags INTEGER DEFAULT 0
-	);
-CREATE UNIQUE INDEX unq_feeds_url ON feeds(url);
-`
+		flags INTEGER DEFAULT 0,
+		CONSTRAINT feeds_uulr UNIQUE (url)
+	);`
 	if _, err := c.Exec(feeds); err != nil {
 		return err
 	}
@@ -72,10 +71,9 @@ CREATE UNIQUE INDEX unq_feeds_url ON feeds(url);
 		published_date TEXT,
 		last_loaded TEXT,
 		last_status INTEGER,
-		FOREIGN KEY(feed_id) REFERENCES feeds(id)
-	);
-CREATE UNIQUE INDEX unq_items_url ON items(url);
-`
+		FOREIGN KEY(feed_id) REFERENCES feeds(id),
+		CONSTRAINT items_uulr UNIQUE (url)
+	);`
 	if _, err := c.Exec(items); err != nil {
 		return err
 	}
@@ -87,8 +85,10 @@ CREATE UNIQUE INDEX unq_items_url ON items(url);
 		type TEXT,
 		created TEXT,
 		FOREIGN KEY(item_id) REFERENCES items(id),
-		CONSTRAINT contents_uindex UNIQUE (item_id, type)
-	);`
+		CONSTRAINT contents_uindex UNIQUE (item_id, type),
+		CONSTRAINT contents_upath UNIQUE (path)
+	);
+`
 	if _, err := c.Exec(contents); err != nil {
 		return err
 	}
@@ -481,12 +481,12 @@ func GetContentsForEbook(c *sql.DB, types ...string) ([]Item, error) {
 	wheres := make([]string, 0)
 	for _, typ := range types {
 		cols = append(cols, fmt.Sprintf("%s.path", typ))
-		joins = append(joins, fmt.Sprintf("LEFT JOIN contents AS %s ON items.id = %s.item_id AND %s.type = '%s' \n", typ, typ, typ, typ))
-		wheres = append(wheres, fmt.Sprintf("%s.path IS NULL", typ))
-
+		joins = append(joins, fmt.Sprintf("LEFT JOIN contents AS %s ON items.id = %s.item_id AND %s.type = '%s' AND %s.path IS NULL\n", typ, typ, typ, typ, typ))
 	}
+	wheres = append(wheres, "TRUE")
 
-	sel := `SELECT items.id, items.feed_index, feeds.title, items.title, items.author, items.published_date, items.last_loaded, raw.id, raw.type, raw.path, %s FROM items
+	sel := `
+SELECT items.id, items.feed_index, feeds.title, items.title, items.author, raw.id, raw.type, raw.path, %s FROM items
 	INNER JOIN feeds ON feeds.id = items.feed_id
 	INNER JOIN contents AS raw ON items.id = raw.item_id AND raw.type = 'raw'
 %s WHERE %s`
@@ -501,15 +501,14 @@ func GetContentsForEbook(c *sql.DB, types ...string) ([]Item, error) {
 	itemIds := make([]string, 0)
 	for s1.Next() {
 		var (
-			id                       int
+			id, feedIndex            int
 			feedTitle, title, author string
-			feedIndex, rawId         sql.NullInt32
-			updated, published       sql.NullTime
+			rawId                    sql.NullInt32
 			it                       Item
 			ok                       bool
 			rawType, rawPath         sql.NullString
 		)
-		params := []interface{}{&id, &feedIndex, &feedTitle, &title, &author, &published, &updated, &rawId, &rawType, &rawPath}
+		params := []interface{}{&id, &feedIndex, &feedTitle, &title, &author, &rawId, &rawType, &rawPath}
 		paths := make(map[string]sql.NullString)
 		for _, typ := range types {
 			params = append(params, interface{}(paths[typ]))
@@ -522,15 +521,7 @@ func GetContentsForEbook(c *sql.DB, types ...string) ([]Item, error) {
 				Author: author,
 				Feed:   Feed{Title: feedTitle},
 			}
-			if published.Valid {
-				it.Published = published.Time
-			}
-			if updated.Valid {
-				it.Updated = updated.Time
-			}
-			if feedIndex.Valid {
-				it.FeedIndex = int(feedIndex.Int32)
-			}
+			it.FeedIndex = feedIndex
 			if rawId.Valid {
 				it.Content = make(map[string]Content)
 				it.Content["raw"] = Content{ID: int(rawId.Int32), Type: rawType.String, Path: rawPath.String}
