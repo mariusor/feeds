@@ -1,6 +1,6 @@
 module github.com/mariusor/feeds
 
-go 1.13
+go 1.16
 
 require (
 	git.sr.ht/~ghost08/ratt v0.0.0-20210824060935-0dd9156af9bb
