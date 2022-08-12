@@ -535,9 +535,7 @@ var tplFuncs = func(r *http.Request) template.FuncMap {
 		},
 		"request":             func() http.Request { return *r },
 		"hasHtml":             has("html"),
-		"hasMobi":             has("mobi"),
-		"hasEPub":             has("epub"),
-		"hasAZW3":             has("azw3"),
+		"validType":           validEbookType,
 		"serviceEnabled":      serviceEnabled,
 		"subscriptionEnabled": subscriptionEnabled,
 	}
@@ -554,6 +552,18 @@ func subscriptionEnabled(feedId int, subscriptions []feeds.Subscription) bool {
 func serviceEnabled(dest []feeds.DestinationTarget, typ string) bool {
 	for _, d := range dest {
 		if d.Type() == typ {
+			return true
+		}
+	}
+	return false
+}
+
+func validEbookType(typ string) bool {
+	for _, tt := range feeds.ValidEbookTypes {
+		if tt == feeds.OutputTypeHTML {
+			continue
+		}
+		if strings.ToLower(tt) == strings.ToLower(typ) {
 			return true
 		}
 	}
