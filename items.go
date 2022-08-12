@@ -46,14 +46,16 @@ func Slug(s string) string {
 		return '-'
 	}, strings.ToLower(s))
 	rr := regexp.MustCompile("-+")
-	b := rr.ReplaceAll([]byte(s), []byte{'-'})
-	if b[len(b)-1] == '-' {
-		b = b[:len(b)-1]
+	if b := rr.ReplaceAll([]byte(s), []byte{'-'}); len(b) > 0 {
+		if b[len(b)-1] == '-' {
+			b = b[:len(b)-1]
+		}
+		if bytes.Equal(b[:4], []byte{'t', 'h', 'e', '-'}) {
+			b = bytes.Replace(b, []byte("the-"), []byte{}, 1)
+		}
+		return string(b)
 	}
-	if bytes.Equal(b[:4], []byte{'t', 'h', 'e', '-'}) {
-		b = bytes.Replace(b, []byte("the-"), []byte{}, 1)
-	}
-	return string(b)
+	return s
 }
 
 func (i Item) PathSlug() string {
