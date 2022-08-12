@@ -1,7 +1,8 @@
-.cache/
+.cache*/
 data/
 .idea
 src/web/app
 src/web/go_build_app_go
 bin/*
 systemd/*.service
+.bkp/
