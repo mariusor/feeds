@@ -6,7 +6,6 @@ import (
 	"net/url"
 
 	"git.sr.ht/~ghost08/ratt"
-	"github.com/PuerkitoBio/goquery"
 	"gopkg.in/yaml.v2"
 )
 
@@ -33,12 +32,7 @@ func ToFeed(c *sql.DB, url *url.URL, body []byte) ([]byte, error) {
 		return nil, err
 	}
 
-	doc, err := goquery.NewDocumentFromReader(bytes.NewReader(body))
-	if err != nil {
-		return nil, err
-	}
-
-	feed, err := ratt.ConstructFeed(doc, url.String(), sel, false)
+	feed, err := sel.ConstructFeedFromURL(url)
 	if err != nil {
 		return nil, err
 	}
