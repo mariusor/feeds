@@ -2,80 +2,43 @@ package main
 
 import (
 	"context"
-	"flag"
 	"log"
+	"os"
 	"path"
-	"time"
 
+	"github.com/alecthomas/kong"
 	"github.com/mariusor/feeds"
-	"golang.org/x/sync/errgroup"
+	"github.com/mariusor/feeds/internal"
 )
 
-const (
-	halfDay   = time.Hour * 12
-	chunkSize = 10
-)
+var CLI struct {
+	Path    string `default:".cache" help:"Base storage path"`
+	Verbose bool   `short:"v" help:"Output debugging messages"`
+}
 
 func main() {
-	var (
-		basePath string
-		verbose  bool
-	)
-	flag.StringVar(&basePath, "path", ".cache", "Base path")
-	flag.BoolVar(&verbose, "verbose", false, "Output debugging messages")
-	flag.Parse()
+	kong.Parse(&CLI,
+		kong.Name("content"),
+		kong.Description("Command to refresh all RSS feeds"),
+		kong.UsageOnError(),
+		kong.ConfigureHelp(kong.HelpOptions{
+			Compact: true,
+			Summary: true,
+		}))
 
-	basePath = path.Clean(basePath)
+	basePath := path.Clean(CLI.Path)
+	if _, err := os.Stat(basePath); os.IsNotExist(err) {
+		os.Mkdir(basePath, 0755)
+	}
 
 	c, err := feeds.DB(basePath)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("Failed to open database: %s", err)
 	}
 	defer c.Close()
 
-	all, err := feeds.GetFeeds(c)
-	if err != nil {
-		log.Fatal(err)
-	}
-	if len(all) == 0 {
-		log.Printf("Nothing to do, exiting.")
-	}
-
-	g, _ := errgroup.WithContext(context.Background())
-	for i := 0; i < len(all); i += chunkSize {
-		for j := i; j < i+chunkSize && j < len(all); j++ {
-			f := all[j]
-			if f.URL == nil {
-				continue
-			}
-
-			g.Go(func() error {
-				if f.URL.Scheme == "" {
-					log.Printf("Feed %s has an invalid URL, skipping...", f.Title)
-					return nil
-				}
-				log.Printf("Feed %s\n", f.URL.String())
-				if f.Frequency == 0 {
-					f.Frequency = halfDay
-				}
-				var last time.Duration = 0
-				if !f.Updated.IsZero() {
-					last = time.Now().UTC().Sub(f.Updated)
-					log.Printf("Last checked %s ago", last.Round(time.Minute).String())
-				}
-				if last > 0 && last <= f.Frequency {
-					log.Printf(" ...newer than %s, skipping.\n", f.Frequency.String())
-					return nil
-				}
-
-				if _, err = feeds.CheckFeed(f, c); err != nil {
-					log.Printf("Error: %s", err)
-				}
-				return nil
-			})
-		}
-		if err := g.Wait(); err != nil {
-			log.Fatal(err)
-		}
+	if _, err := internal.FetchFeeds(context.Background(), c); err != nil {
+		log.Fatalf("Failed to load feeds: %s", err)
+		os.Exit(1)
 	}
 }

@@ -108,8 +108,12 @@ func CheckFeed(f Feed, c *sql.DB) (bool, error) {
 	all := make([]Item, 0)
 	for _, item := range doc.Items {
 		it := Item{}
-		if err = s.QueryRow(item.Link).Scan(&it.ID, &it.Published); err != nil {
+		var pub sql.NullString
+		if err = s.QueryRow(item.Link).Scan(&it.ID, &pub); err != nil {
 			log.Printf("Error: %s", err)
+		}
+		if pub.Valid {
+			item.Date, _ = time.Parse("2006-01-02T15:04:05Z07", pub.String)
 		}
 		if item.Date.Sub(it.Published) <= 0 || item.Title == "" {
 			continue

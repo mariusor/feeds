@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -13,8 +14,6 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
-
-	_ "modernc.org/sqlite"
 )
 
 const DBFilePath = "feeds.db"
@@ -252,25 +251,6 @@ func feedItemsAverageSize(path string) int {
 	return int(sum / cnt)
 }
 
-type errors []error
-
-func (e errors) Error() string {
-	s := strings.Builder{}
-	l := len(e) - 1
-	isLast := func(i int) bool {
-		return i == l
-	}
-	s.WriteString("[")
-	for i, err := range e {
-		s.WriteString(err.Error())
-		if !isLast(i) {
-			s.WriteString(", ")
-		}
-	}
-	s.WriteString("]")
-	return s.String()
-}
-
 func SaveFeeds(c *sql.DB, feeds ...Feed) error {
 	ins := `INSERT INTO feeds (title, frequency, author, url, flags) VALUES(?, ?, ?, ?, ?) ON CONFLICT(url) DO NOTHING;`
 	s, err := c.Prepare(ins)
@@ -279,14 +259,14 @@ func SaveFeeds(c *sql.DB, feeds ...Feed) error {
 	}
 	defer s.Close()
 
-	multi := make(errors, 0)
+	multi := make([]error, 0)
 	for _, f := range feeds {
 		if _, err := s.Exec(f.Title, f.Frequency.Seconds(), f.Author, f.URL.String(), f.Flags); err != nil {
 			multi = append(multi, fmt.Errorf("unable to save feed %s: %w", f.Title, err))
 		}
 	}
 	if len(multi) > 0 {
-		return multi
+		return errors.Join(multi...)
 	}
 	return nil
 }
@@ -761,7 +741,7 @@ func SaveSubscriptions(c *sql.DB, d Destination, feeds ...Feed) error {
 	}
 	defer s.Close()
 
-	multi := make(errors, 0)
+	multi := make([]error, 0)
 	d.Created = time.Now().UTC()
 	for _, f := range feeds {
 		if f.ID == 0 {
@@ -773,7 +753,7 @@ func SaveSubscriptions(c *sql.DB, d Destination, feeds ...Feed) error {
 		}
 	}
 	if len(multi) > 0 {
-		return multi
+		return errors.Join(multi...)
 	}
 	return nil
 }
@@ -883,7 +863,7 @@ func InsertContent(c *sql.DB, item Item) error {
 	}
 	defer s.Close()
 
-	multi := make(errors, 0)
+	multi := make([]error, 0)
 	for typ, cont := range item.Content {
 		if typ == OutputTypeRAW {
 			continue
@@ -893,7 +873,7 @@ func InsertContent(c *sql.DB, item Item) error {
 		}
 	}
 	if len(multi) > 0 {
-		return multi
+		return errors.Join(multi...)
 	}
 	return nil
 }

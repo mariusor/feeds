@@ -7,6 +7,7 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 const (
@@ -145,42 +146,45 @@ func getItemContentForType(it Item, typ string) ([]byte, error) {
 	return buf, nil
 }
 
-func GenerateContent(typ, basePath string, item *Item, overwrite bool) error {
+func GenerateContent(typ, basePath string, item *Item, overwrite bool) (bool, error) {
 	if !validEbookType(typ) {
-		return fmt.Errorf("invalid ebook type %s, valid ones are %v", typ, ValidEbookTypes)
+		return false, fmt.Errorf("invalid ebook type %s, valid ones are %v", typ, ValidEbookTypes)
 	}
 	if c, ok := item.Content[typ]; ok && c.Path != "" {
-		return nil
+		return false, nil
 	}
 	var err error
 
 	outPath := path.Join(basePath, OutputDir, strings.TrimSpace(item.Feed.Title), typ, item.Path(typ))
 	if !path.IsAbs(outPath) {
 		if outPath, err = filepath.Abs(outPath); err != nil {
-			return err
+			return false, err
 		}
 	}
 	outDirPath := path.Dir(outPath)
 	if _, err := os.Stat(outDirPath); err != nil && os.IsNotExist(err) {
 		if err = os.MkdirAll(outDirPath, 0755); err != nil {
-			return err
+			return false, err
 		}
 	}
-
-	if _, err := os.Stat(outPath); !overwrite && !(err != nil && os.IsNotExist(err)) {
-		return nil
+	fi, err := os.Stat(outPath)
+	if err != nil && !os.IsNotExist(err) {
+		return false, err
+	}
+	if fi.ModTime().Sub(time.Now()).Truncate(time.Second) == 0 && !overwrite {
+		return false, nil
 	}
 	buf, err := getItemContentForType(*item, typesDependencies[typ])
 	if err != nil {
-		return err
+		return false, err
 	}
 	fn := mappings[typ](item, typ)
 	if err = fn(buf, strings.TrimSpace(item.Title), strings.TrimSpace(item.Author), outPath); err != nil {
-		return err
+		return false, err
 	}
 	if _, err := os.Stat(outPath); err != nil {
-		return err
+		return false, err
 	}
 
-	return nil
+	return true, nil
 }
