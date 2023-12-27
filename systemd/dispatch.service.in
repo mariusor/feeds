@@ -3,4 +3,4 @@ Description = Service to dispatch readable articles
 
 [Service]
 Type = oneshot
-ExecStart = BIN_NAME -path DATA_PATH
+ExecStart = BIN_NAME --path DATA_PATH

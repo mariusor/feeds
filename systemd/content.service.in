@@ -3,4 +3,4 @@ Description = Service to download and make rss items readable
 
 [Service]
 Type = oneshot
-ExecStart = BIN_NAME -path DATA_PATH
+ExecStart = BIN_NAME --path DATA_PATH
