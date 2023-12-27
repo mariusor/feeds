@@ -7,7 +7,6 @@ import (
 	"encoding/binary"
 	"encoding/gob"
 	"encoding/json"
-	"flag"
 	"fmt"
 	"html/template"
 	"io"
@@ -22,6 +21,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/alecthomas/kong"
 	"github.com/dghubble/sessions"
 	"github.com/mariusor/feeds"
 	"github.com/motemen/go-pocket/auth"
@@ -449,15 +449,23 @@ func getSessionKey() []byte {
 	return b
 }
 
-func main() {
-	var (
-		listen, basePath string
-	)
-	flag.StringVar(&basePath, "path", ".cache", "Base path")
-	flag.StringVar(&listen, "listen", "localhost:3000", "The HTTP address to listen on")
-	flag.Parse()
+var CLI struct {
+	Path    string `default:".cache" help:"Base storage path"`
+	Listen  string `default:"localhost:3000" help:"The HTTP address to listen on"`
+	Verbose bool   `short:"v" help:"Output debugging messages"`
+}
 
-	basePath = path.Clean(basePath)
+func main() {
+	kong.Parse(&CLI,
+		kong.Name("content"),
+		kong.Description("Command to fetch all pending articles"),
+		kong.UsageOnError(),
+		kong.ConfigureHelp(kong.HelpOptions{
+			Compact: true,
+			Summary: true,
+		}))
+
+	basePath := path.Clean(CLI.Path)
 	if _, err := os.Stat(basePath); os.IsNotExist(err) {
 		os.Mkdir(basePath, 0755)
 	}
@@ -488,7 +496,7 @@ func main() {
 		}
 	}()
 
-	log.Fatal(http.ListenAndServe(listen, r))
+	log.Fatal(http.ListenAndServe(CLI.Listen, r))
 }
 
 type index struct {

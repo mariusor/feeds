@@ -1,4 +1,4 @@
-package internal
+package feeds
 
 import (
 	"context"
@@ -10,7 +10,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/mariusor/feeds"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -20,8 +19,8 @@ const (
 	defaultSleepAfterBatch = 200 * time.Millisecond
 )
 
-func FetchItems(ctx context.Context, c *sql.DB, basePath string) (bool, error) {
-	all, err := feeds.GetNonFetchedItems(c)
+func FetchItemsCmd(ctx context.Context, c *sql.DB, basePath string) (bool, error) {
+	all, err := GetNonFetchedItems(c)
 	if err != nil {
 		return false, err
 	}
@@ -48,7 +47,7 @@ func FetchItems(ctx context.Context, c *sql.DB, basePath string) (bool, error) {
 				}()
 
 				m.Lock()
-				status, err = feeds.LoadItem(&it, c, basePath)
+				status, err = LoadItem(&it, c, basePath)
 				if err != nil {
 					log.Printf("Error[%5d] %s %s", it.FeedIndex, it.URL.String(), err.Error())
 					failures[it.Feed.ID]++
@@ -65,8 +64,8 @@ func FetchItems(ctx context.Context, c *sql.DB, basePath string) (bool, error) {
 	return status, nil
 }
 
-func FetchFeeds(ctx context.Context, c *sql.DB) (bool, error) {
-	all, err := feeds.GetFeeds(c)
+func FetchFeedsCmd(ctx context.Context, c *sql.DB) (bool, error) {
+	all, err := GetFeeds(c)
 	if err != nil {
 		return false, err
 	}
@@ -103,7 +102,7 @@ func FetchFeeds(ctx context.Context, c *sql.DB) (bool, error) {
 				}
 
 				hasItems := false
-				if hasItems, err = feeds.CheckFeed(f, c); err != nil {
+				if hasItems, err = CheckFeed(f, c); err != nil {
 					log.Printf("Error: %s", err)
 				}
 				hasNewItems = hasNewItems || hasItems
@@ -117,8 +116,8 @@ func FetchFeeds(ctx context.Context, c *sql.DB) (bool, error) {
 	return hasNewItems, nil
 }
 
-func GenerateContent(ctx context.Context, c *sql.DB, basePath string) error {
-	all, err := feeds.GetContentsForEbook(c, feeds.ValidEbookTypes[:]...)
+func GenerateContentCmd(ctx context.Context, c *sql.DB, basePath string) error {
+	all, err := GetContentsForEbook(c, ValidEbookTypes[:]...)
 	if err != nil {
 		return err
 	}
@@ -138,12 +137,12 @@ func GenerateContent(ctx context.Context, c *sql.DB, basePath string) error {
 				m.Lock()
 				gen, err := generateContent(item, basePath, true)
 				if err != nil {
-					feeds.MarkItemsAsFailed(c, *item)
+					MarkItemsAsFailed(c, *item)
 					return nil
 				}
 
 				if gen {
-					if err = feeds.InsertContent(c, *item); err != nil {
+					if err = InsertContent(c, *item); err != nil {
 						log.Printf("Unable to update paths in db: %s", err.Error())
 						return nil
 					}
@@ -164,25 +163,25 @@ func fileExists(file string) bool {
 	return err == nil
 }
 
-func generateContent(item *feeds.Item, basePath string, overwrite bool) (bool, error) {
+func generateContent(item *Item, basePath string, overwrite bool) (bool, error) {
 	generated := false
-	if gen, err := feeds.GenerateContent(feeds.OutputTypeHTML, basePath, item, overwrite); err != nil {
+	if gen, err := GenerateContent(OutputTypeHTML, basePath, item, overwrite); err != nil {
 		log.Printf("Unable to generate path: %s", err.Error())
-		if errors.Is(err, feeds.FileSizeError) {
+		if errors.Is(err, FileSizeError) {
 			return gen, err
 		}
 		generated = generated || gen
 	}
 
 	errs := make([]error, 0)
-	for _, typ := range feeds.ValidEbookTypes {
+	for _, typ := range ValidEbookTypes {
 		if c, ok := item.Content[typ]; ok {
 			if fileExists(c.Path) {
 				continue
 			}
 			delete(item.Content, typ)
 		}
-		gen, err := feeds.GenerateContent(typ, basePath, item, overwrite)
+		gen, err := GenerateContent(typ, basePath, item, overwrite)
 		if err != nil {
 			log.Printf("Unable to generate path: %s", err.Error())
 			errs = append(errs, err)
@@ -192,8 +191,8 @@ func generateContent(item *feeds.Item, basePath string, overwrite bool) (bool, e
 	return generated, errors.Join(errs...)
 }
 
-func DispatchContent(ctx context.Context, c *sql.DB) error {
-	all, err := feeds.GetNonDispatchedItemContentsForDestination(c)
+func DispatchContentCmd(ctx context.Context, c *sql.DB) error {
+	all, err := GetNonDispatchedItemContentsForDestination(c)
 	if err != nil {
 		return err
 	}
@@ -220,7 +219,7 @@ func DispatchContent(ctx context.Context, c *sql.DB) error {
 					time.Sleep(defaultSleepAfterBatch)
 				}()
 				m.Lock()
-				if err := Dispatch(c, disp); err != nil {
+				if err := dispatch(c, disp); err != nil {
 					log.Printf("Error: %s", err.Error())
 					failures[disp.Destination.ID]++
 					return err
@@ -235,15 +234,15 @@ func DispatchContent(ctx context.Context, c *sql.DB) error {
 	return nil
 }
 
-func Dispatch(c *sql.DB, disp feeds.DispatchItem) error {
+func dispatch(c *sql.DB, disp DispatchItem) error {
 	var err error
 	var status bool
 
 	switch disp.Destination.Type {
 	case "myk":
-		status, err = feeds.DispatchToKindle(disp)
+		status, err = DispatchToKindle(disp)
 	case "pocket":
-		status, err = feeds.DispatchToPocket(disp)
+		status, err = DispatchToPocket(disp)
 	default:
 		return fmt.Errorf("unknown dispatch type %s", disp.Destination.Type)
 	}
@@ -251,6 +250,6 @@ func Dispatch(c *sql.DB, disp feeds.DispatchItem) error {
 	if err != nil {
 		disp.LastMessage = err.Error()
 	}
-	feeds.SaveTarget(c, disp)
+	SaveTarget(c, disp)
 	return err
 }

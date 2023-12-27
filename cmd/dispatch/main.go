@@ -8,7 +8,6 @@ import (
 
 	"github.com/alecthomas/kong"
 	"github.com/mariusor/feeds"
-	"github.com/mariusor/feeds/internal"
 )
 
 var CLI struct {
@@ -37,7 +36,7 @@ func main() {
 	}
 	defer c.Close()
 
-	if err := internal.DispatchContent(context.Background(), c); err != nil {
+	if err := feeds.DispatchContentCmd(context.Background(), c); err != nil {
 		log.Fatalf("Failed to fetch items: %s", err)
 		os.Exit(1)
 	}

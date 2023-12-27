@@ -8,7 +8,6 @@ import (
 
 	"github.com/alecthomas/kong"
 	"github.com/mariusor/feeds"
-	"github.com/mariusor/feeds/internal"
 )
 
 var CLI struct {
@@ -37,7 +36,7 @@ func main() {
 	}
 	defer c.Close()
 
-	if _, err := internal.FetchFeeds(context.Background(), c); err != nil {
+	if _, err := feeds.FetchFeedsCmd(context.Background(), c); err != nil {
 		log.Fatalf("Failed to load feeds: %s", err)
 		os.Exit(1)
 	}

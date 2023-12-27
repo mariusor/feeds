@@ -171,7 +171,7 @@ func GenerateContent(typ, basePath string, item *Item, overwrite bool) (bool, er
 	if err != nil && !os.IsNotExist(err) {
 		return false, err
 	}
-	if fi.ModTime().Sub(time.Now()).Truncate(time.Second) == 0 && !overwrite {
+	if ((err != nil && os.IsNotExist(err)) || fi.ModTime().Sub(time.Now()).Truncate(time.Second) == 0) && !overwrite {
 		return false, nil
 	}
 	buf, err := getItemContentForType(*item, typesDependencies[typ])

@@ -8,7 +8,6 @@ import (
 
 	"github.com/alecthomas/kong"
 	"github.com/mariusor/feeds"
-	"github.com/mariusor/feeds/internal"
 	"github.com/mariusor/go-readability"
 )
 
@@ -42,7 +41,7 @@ func main() {
 	}
 	defer c.Close()
 
-	if _, err := internal.FetchItems(context.Background(), c, basePath); err != nil {
+	if _, err := feeds.FetchItemsCmd(context.Background(), c, basePath); err != nil {
 		log.Fatalf("Failed to fetch items: %s", err)
 	}
 }

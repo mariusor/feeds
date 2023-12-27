@@ -8,7 +8,6 @@ import (
 
 	"github.com/alecthomas/kong"
 	"github.com/mariusor/feeds"
-	"github.com/mariusor/feeds/internal"
 )
 
 var CLI struct {
@@ -37,7 +36,7 @@ func main() {
 	}
 	defer c.Close()
 
-	if err := internal.GenerateContent(context.Background(), c, basePath); err != nil {
+	if err := feeds.GenerateContentCmd(context.Background(), c, basePath); err != nil {
 		log.Fatalf("Failed to generate content: %s", err)
 		os.Exit(1)
 	}
