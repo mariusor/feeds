@@ -94,7 +94,7 @@ func FetchFeedsCmd(ctx context.Context, c *sql.DB) (bool, error) {
 				var last time.Duration = 0
 				if !f.Updated.IsZero() {
 					last = time.Now().UTC().Sub(f.Updated)
-					log.Printf("Last checked %s ago", last.Round(time.Minute).String())
+					log.Printf("Last checked %s ago", last.Round(10*time.Second).String())
 				}
 				if last > 0 && last <= f.Frequency {
 					log.Printf(" ...newer than %s, skipping.\n", f.Frequency.String())
