@@ -2,7 +2,9 @@ package main
 
 import (
 	"context"
+	"io"
 	"log"
+	"log/slog"
 	"os"
 	"path"
 
@@ -29,6 +31,12 @@ func main() {
 	if _, err := os.Stat(basePath); os.IsNotExist(err) {
 		os.Mkdir(basePath, 0755)
 	}
+
+	handler := slog.NewTextHandler(io.Discard, &slog.HandlerOptions{})
+	if CLI.Verbose {
+		handler = slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug})
+	}
+	slog.SetDefault(slog.New(handler.WithGroup("feeds")))
 
 	c, err := feeds.DB(basePath)
 	if err != nil {

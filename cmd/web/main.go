@@ -11,6 +11,7 @@ import (
 	"html/template"
 	"io"
 	"log"
+	"log/slog"
 	"math"
 	"math/rand"
 	"net/http"
@@ -464,6 +465,12 @@ func main() {
 			Compact: true,
 			Summary: true,
 		}))
+
+	handler := slog.NewTextHandler(io.Discard, &slog.HandlerOptions{})
+	if CLI.Verbose {
+		handler = slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug})
+	}
+	slog.SetDefault(slog.New(handler.WithGroup("web")))
 
 	basePath := path.Clean(CLI.Path)
 	if _, err := os.Stat(basePath); os.IsNotExist(err) {

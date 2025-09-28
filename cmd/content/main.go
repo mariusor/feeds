@@ -2,7 +2,9 @@ package main
 
 import (
 	"context"
+	"io"
 	"log"
+	"log/slog"
 	"os"
 	"path"
 
@@ -26,9 +28,12 @@ func main() {
 			Summary: true,
 		}))
 
+	handler := slog.NewTextHandler(io.Discard, &slog.HandlerOptions{})
 	if CLI.Verbose {
-		readability.Logger = log.New(os.Stdout, "[readability] ", log.LstdFlags)
+		handler = slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug})
+		readability.Logger = slog.New(handler.WithGroup("readability"))
 	}
+	slog.SetDefault(slog.New(handler.WithGroup("content")))
 
 	basePath := path.Clean(CLI.Path)
 	if _, err := os.Stat(basePath); os.IsNotExist(err) {

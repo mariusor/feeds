@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"log/slog"
 	"os"
 	"sync"
 	"time"
@@ -103,7 +104,7 @@ func FetchFeedsCmd(ctx context.Context, c *sql.DB) (bool, error) {
 
 				hasItems := false
 				if hasItems, err = CheckFeed(f, c); err != nil {
-					log.Printf("Error: %s", err)
+					slog.With(slog.Any("err", err), slog.String("feed", f.Title)).Info("failed")
 				}
 				hasNewItems = hasNewItems || hasItems
 				return nil

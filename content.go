@@ -137,7 +137,7 @@ func html(item *Item, typ string) convertFn {
 func getItemContentForType(it Item, typ string) ([]byte, error) {
 	c, ok := it.Content[typ]
 	if !ok {
-		return nil, fmt.Errorf("invalid content of type %s for item %v", typ, it)
+		return nil, fmt.Errorf("invalid content of type %s for item %s", typ, it.Title)
 	}
 	buf, err := readFile(c.Path)
 	if err != nil {
