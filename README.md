@@ -1,11 +1,11 @@
-# ![Logo](web/static/icon.svg) FeedSync
+# ![Logo](cmd/web/static/icon.svg) FeedSync
 
 A suite of applications for bridging the gap between RSS feeds and eBook readers.
 
 Supported devices:
- 
-* Kobo devices through integration with Pocket.
+
 * Kindle devices through email connectivity to myKindle.
+* ~~Kobo devices through integration with Pocket.~~ This stopped working as Pocket is discontinued.
 * ~~reMarkable devices - not yet ready.~~
 
 Supported formats for incoming feeds:
